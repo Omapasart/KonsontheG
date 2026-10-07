@@ -1,0 +1,116 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\PaymentStatus;
+use App\Enums\RegistrationStatus;
+use App\Mail\RegistrationReceived;
+use App\Models\Registration;
+use App\Support\RegistrationWizard;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+
+class RegistrationService
+{
+    /**
+     * @param  array<string, mixed>  $wizard
+     */
+    public function assertComplete(array $wizard, bool $hasNewProof): void
+    {
+        $missing = [];
+
+        if (! in_array($wizard['has_tournament_experience'] ?? null, ['yes', 'no'], true)) {
+            $missing[] = 'tournament experience';
+        }
+
+        if (! in_array($wizard['entry_level'] ?? null, ['beginner', 'novice', 'intermediate'], true)) {
+            $missing[] = 'entry level';
+        }
+
+        foreach (['last_name', 'first_name', 'contact_number', 'address', 'email'] as $field) {
+            if (! filled($wizard[$field] ?? null)) {
+                $missing[] = str_replace('_', ' ', $field);
+            }
+        }
+
+        if (! RegistrationWizard::ownsTempPath($wizard['photo_path'] ?? null)) {
+            $missing[] = 'photo';
+        }
+
+        if (! $hasNewProof && ! RegistrationWizard::ownsTempPath($wizard['payment_proof_path'] ?? null)) {
+            $missing[] = 'proof of payment';
+        }
+
+        if ($missing !== []) {
+            throw ValidationException::withMessages([
+                'registration' => 'Please complete all required information before submitting: '.implode(', ', $missing).'.',
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $wizard
+     */
+    public function submit(array $wizard, string $submissionToken): Registration
+    {
+        $existing = Registration::query()->where('submission_token', $submissionToken)->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $registration = DB::transaction(function () use ($wizard, $submissionToken) {
+            $photoPath = $this->promoteTempFile($wizard['photo_path'], 'photos');
+            $proofPath = $this->promoteTempFile($wizard['payment_proof_path'], 'proofs');
+
+            return Registration::create([
+                'has_tournament_experience' => $wizard['has_tournament_experience'],
+                'entry_level' => $wizard['entry_level'],
+                'last_name' => $wizard['last_name'],
+                'first_name' => $wizard['first_name'],
+                'middle_initial' => $wizard['middle_initial'] ?? null,
+                'contact_number' => $wizard['contact_number'],
+                'address' => $wizard['address'],
+                'facebook' => $wizard['facebook'] ?? null,
+                'email' => $wizard['email'],
+                'photo_path' => $photoPath,
+                'payment_proof_path' => $proofPath,
+                'payment_status' => PaymentStatus::Pending,
+                'registration_status' => RegistrationStatus::Pending,
+                'submission_token' => $submissionToken,
+            ]);
+        });
+
+        $registration = $registration->refresh();
+        $this->notifyParticipant($registration);
+
+        return $registration;
+    }
+
+    private function notifyParticipant(Registration $registration): void
+    {
+        try {
+            Mail::to($registration->email)->send(new RegistrationReceived($registration));
+        } catch (\Throwable $exception) {
+            Log::error('Failed to send registration email.', [
+                'registration_id' => $registration->id,
+                'email' => $registration->email,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function promoteTempFile(string $tempPath, string $folder): string
+    {
+        $extension = strtolower(pathinfo($tempPath, PATHINFO_EXTENSION));
+        $destination = 'registrations/'.$folder.'/'.Str::uuid().'.'.$extension;
+
+        Storage::disk('local')->move($tempPath, $destination);
+
+        return $destination;
+    }
+}

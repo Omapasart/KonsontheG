@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="GCash QR placeholder">
+  <rect width="240" height="240" fill="#ffffff"/>
+  <g fill="#0d0d0d">
+    <rect x="16" y="16" width="70" height="70"/>
+    <rect x="26" y="26" width="50" height="50" fill="#ffffff"/>
+    <rect x="36" y="36" width="30" height="30"/>
+    <rect x="154" y="16" width="70" height="70"/>
+    <rect x="164" y="26" width="50" height="50" fill="#ffffff"/>
+    <rect x="174" y="36" width="30" height="30"/>
+    <rect x="16" y="154" width="70" height="70"/>
+    <rect x="26" y="164" width="50" height="50" fill="#ffffff"/>
+    <rect x="36" y="174" width="30" height="30"/>
+    <rect x="104" y="16" width="14" height="14"/>
+    <rect x="122" y="16" width="14" height="14"/>
+    <rect x="104" y="34" width="14" height="14"/>
+    <rect x="104" y="70" width="14" height="14"/>
+    <rect x="122" y="52" width="14" height="14"/>
+    <rect x="104" y="104" width="14" height="14"/>
+    <rect x="122" y="104" width="14" height="14"/>
+    <rect x="140" y="104" width="14" height="14"/>
+    <rect x="158" y="104" width="14" height="14"/>
+    <rect x="176" y="104" width="14" height="14"/>
+    <rect x="194" y="104" width="14" height="14"/>
+    <rect x="210" y="104" width="14" height="14"/>
+    <rect x="104" y="122" width="14" height="14"/>
+    <rect x="140" y="122" width="14" height="14"/>
+    <rect x="176" y="122" width="14" height="14"/>
+    <rect x="210" y="122" width="14" height="14"/>
+    <rect x="104" y="140" width="14" height="14"/>
+    <rect x="122" y="140" width="14" height="14"/>
+    <rect x="158" y="140" width="14" height="14"/>
+    <rect x="194" y="140" width="14" height="14"/>
+    <rect x="104" y="158" width="14" height="14"/>
+    <rect x="140" y="158" width="14" height="14"/>
+    <rect x="176" y="158" width="14" height="14"/>
+    <rect x="210" y="158" width="14" height="14"/>
+    <rect x="104" y="176" width="14" height="14"/>
+    <rect x="122" y="176" width="32" height="14"/>
+    <rect x="176" y="176" width="14" height="14"/>
+    <rect x="210" y="176" width="14" height="14"/>
+    <rect x="104" y="194" width="14" height="14"/>
+    <rect x="140" y="194" width="14" height="14"/>
+    <rect x="158" y="194" width="32" height="14"/>
+    <rect x="210" y="194" width="14" height="14"/>
+    <rect x="122" y="210" width="14" height="14"/>
+    <rect x="158" y="210" width="14" height="14"/>
+    <rect x="194" y="210" width="30" height="14"/>
+  </g>
+  <rect x="92" y="92" width="56" height="56" fill="#c8e600"/>
+  <text x="120" y="122" text-anchor="middle" font-size="11" font-family="Arial, sans-serif" font-weight="700" fill="#0d0d0d">KTG</text>
+  <text x="120" y="136" text-anchor="middle" font-size="8" font-family="Arial, sans-serif" fill="#0d0d0d">GCASH</text>
+</svg>
