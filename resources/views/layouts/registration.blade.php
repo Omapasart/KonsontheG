@@ -21,7 +21,7 @@
                 <img
                     src="{{ asset('images/konsonthego-logo.png') }}"
                     alt="KONSONTHEGO"
-                    class="h-16 w-auto drop-shadow-lg sm:h-20"
+                    class="h-34 w-auto drop-shadow-lg sm:h-36 lg:h-44"
                 >
             </header>
 
@@ -51,7 +51,7 @@
             </main>
 
             <footer class="mt-10 pb-4 text-center text-xs text-white/40">
-                KONSONTHEGO Tournament Registration
+                KONSONTHEGO Tournament Registration - AOG Creatives
             </footer>
         </div>
     </body>

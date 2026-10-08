@@ -60,3 +60,58 @@
 .carousel-slide {
     transition: opacity 450ms ease;
 }
+
+@layer components {
+    .nav-link {
+        @apply block rounded-xl px-3 py-2 font-semibold text-white/70 transition hover:bg-white/5 hover:text-ktg-lime;
+    }
+
+    .nav-link-active {
+        @apply bg-ktg-lime/15 text-ktg-lime;
+    }
+
+    .stat-card {
+        @apply rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-ktg-lime/40;
+    }
+
+    .stat-label {
+        @apply text-xs font-bold uppercase tracking-widest text-white/45;
+    }
+
+    .stat-value {
+        @apply mt-2 font-display text-4xl italic;
+    }
+
+    .admin-table {
+        @apply w-full min-w-[960px] text-left text-sm;
+    }
+
+    .admin-table th {
+        @apply border-b border-white/10 px-4 py-3 text-xs font-bold uppercase tracking-widest text-white/45;
+    }
+
+    .admin-table td {
+        @apply border-b border-white/5 px-4 py-3 align-middle;
+    }
+
+    .admin-table th:last-child,
+    .admin-table td:last-child {
+        @apply sticky right-0 bg-[#161616];
+    }
+
+    .status-badge {
+        @apply inline-flex rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide;
+    }
+
+    .badge-warning {
+        @apply bg-amber-500/20 text-amber-200;
+    }
+
+    .badge-success {
+        @apply bg-ktg-green/20 text-ktg-lime;
+    }
+
+    .badge-danger {
+        @apply bg-red-500/20 text-red-200;
+    }
+}
