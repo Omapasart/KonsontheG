@@ -32,4 +32,30 @@ class RegistrationFactory extends Factory
             'submission_token' => Str::random(64),
         ];
     }
+
+    public function confirmed(): static
+    {
+        return $this->state(fn (): array => [
+            'payment_status' => 'verified',
+            'registration_status' => 'approved',
+            'slot_status' => 'confirmed',
+            'waiting_list_position' => null,
+            'confirmed_at' => now(),
+            'approved_at' => now(),
+            'reviewed_at' => now(),
+        ]);
+    }
+
+    public function waiting(int $position): static
+    {
+        return $this->state(fn (): array => [
+            'payment_status' => 'verified',
+            'registration_status' => 'approved',
+            'slot_status' => 'waiting',
+            'waiting_list_position' => $position,
+            'confirmed_at' => null,
+            'approved_at' => now(),
+            'reviewed_at' => now(),
+        ]);
+    }
 }

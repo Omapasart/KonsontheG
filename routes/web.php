@@ -4,8 +4,10 @@ use App\Http\Controllers\Admin\ApplicantController;
 use App\Http\Controllers\Admin\ApplicantFileController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CategoryTransferController;
+use App\Http\Controllers\Admin\ConfirmedApplicantsExportController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\RefreshConfirmedSlotsController;
 use App\Http\Controllers\Admin\WaitingListController;
 use App\Http\Controllers\CategoryTransferResponseController;
 use App\Http\Controllers\RegistrationController;
@@ -64,6 +66,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/profile', ProfileController::class)->name('profile');
 
         Route::get('/waiting-list', WaitingListController::class)->name('waiting-list');
+        Route::get('/confirmed-applicants/export', ConfirmedApplicantsExportController::class)->name('confirmed-applicants.export');
+        Route::get('/confirmed-slots/refresh', [RefreshConfirmedSlotsController::class, 'create'])->name('confirmed-slots.refresh');
+        Route::post('/confirmed-slots/refresh', [RefreshConfirmedSlotsController::class, 'store'])->name('confirmed-slots.refresh.store');
         Route::get('/applicants', [ApplicantController::class, 'index'])->name('applicants.index');
         Route::get('/applicants/{registration}', [ApplicantController::class, 'show'])->name('applicants.show');
         Route::post('/applicants/{registration}/approve', [ApplicantController::class, 'approve'])->name('applicants.approve');

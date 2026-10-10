@@ -9,13 +9,8 @@
 
         @if (session('capacity_notice') === 'waiting')
             <div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-4 text-sm leading-relaxed text-amber-100">
-                <p class="font-extrabold uppercase tracking-widest">Pending Verification</p>
+                <p class="font-extrabold uppercase tracking-widest">Waiting List</p>
                 <p class="mt-2">Regular slots for this category are currently full. After you submit, an administrator must verify your application. You may then be placed on the waiting list if a position is available.</p>
-            </div>
-        @elseif (session('capacity_notice') === 'full')
-            <div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-4 text-sm leading-relaxed text-amber-100">
-                <p class="font-extrabold uppercase tracking-widest">Pending Verification</p>
-                <p class="mt-2">This category currently has no remaining regular or waiting-list slots. You may still apply. A slot will be assigned only after admin verification if availability opens.</p>
             </div>
         @endif
 

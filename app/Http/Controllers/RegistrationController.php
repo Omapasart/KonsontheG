@@ -58,6 +58,8 @@ class RegistrationController extends Controller
     {
         return $this->guard(3) ?? view('registration.level', array_merge($this->viewData(3), [
             'categories' => $this->capacity->snapshot(),
+            'registrationClosed' => $this->capacity->registrationIsClosed(),
+            'closedMessage' => $this->capacity->closedMessage(),
         ]));
     }
 
@@ -73,7 +75,7 @@ class RegistrationController extends Controller
 
         return redirect()
             ->route('register.personal')
-            ->with('capacity_notice', $status['is_full'] ? 'full' : ($status['is_waiting'] ? 'waiting' : null));
+            ->with('capacity_notice', $status['is_waiting'] ? 'waiting' : null);
     }
 
     public function personal(): View|RedirectResponse

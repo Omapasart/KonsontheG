@@ -158,7 +158,8 @@ class CategoryCapacityTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.dashboard'))
             ->assertSee('2 / 2 confirmed')
-            ->assertSee('1 / 2 waiting');
+            ->assertSee('1 / 2 waiting')
+            ->assertSee('WAITING LIST ONLY');
 
         $this->actingAs($admin)
             ->get(route('admin.applicants.show', $confirmed))
@@ -193,7 +194,8 @@ class CategoryCapacityTest extends TestCase
         $this->actingAs(User::factory()->admin()->create())
             ->get(route('admin.dashboard'))
             ->assertSee('1 / 2 confirmed')
-            ->assertSee('1 regular slot available');
+            ->assertSee('1 regular remaining')
+            ->assertSee('OPEN');
     }
 
     public function test_manual_promote_is_blocked_when_no_confirmed_slot_is_free(): void
@@ -238,7 +240,7 @@ class CategoryCapacityTest extends TestCase
             ->assertSeeInOrder(['First', 'Second']);
     }
 
-    public function test_entry_level_page_shows_live_availability_and_still_allows_full_categories(): void
+    public function test_entry_level_page_disables_full_categories_and_allows_waiting_list_only(): void
     {
         Registration::factory()->count(2)->create(['entry_level' => 'beginner', 'slot_status' => 'confirmed']);
         Registration::factory()->count(2)->create([
@@ -253,19 +255,113 @@ class CategoryCapacityTest extends TestCase
 
         $this->get(route('register.level'))
             ->assertOk()
-            ->assertSee('Full')
-            ->assertSee('Regular slots full')
-            ->assertSee('2 / 2 tournament slots')
-            ->assertSee('Waiting list 0 / 2', false);
+            ->assertSee('FULL — REGISTRATION CLOSED')
+            ->assertSee('WAITING LIST ONLY')
+            ->assertSee('0 regular slots remaining')
+            ->assertSee('2 waiting-list slots remaining')
+            ->assertDontSee('You may still apply');
 
         $this->from(route('register.level'))
             ->post(route('register.level.store'), ['entry_level' => 'beginner'])
-            ->assertRedirect(route('register.personal'))
-            ->assertSessionHas('capacity_notice', 'full');
+            ->assertRedirect(route('register.level'))
+            ->assertSessionHasErrors('entry_level');
 
         $this->post(route('register.level.store'), ['entry_level' => 'novice'])
             ->assertRedirect(route('register.personal'))
             ->assertSessionHas('capacity_notice', 'waiting');
+    }
+
+    public function test_registration_is_closed_when_all_categories_are_full(): void
+    {
+        foreach (['beginner', 'novice', 'intermediate'] as $level) {
+            Registration::factory()->count(2)->create(['entry_level' => $level, 'slot_status' => 'confirmed']);
+            Registration::factory()->count(2)->create([
+                'entry_level' => $level,
+                'slot_status' => 'waiting',
+                'confirmed_at' => null,
+            ]);
+        }
+
+        $this->startWizard();
+        $this->post(route('register.experience.store'), ['has_tournament_experience' => 'no']);
+
+        $this->get(route('register.level'))
+            ->assertOk()
+            ->assertSee('All tournament categories are fully booked, including their waiting lists. Registration is now closed. Thank you for your interest in KONSONTHEGO Tournament.')
+            ->assertSee('Continue', false);
+
+        $this->from(route('register.level'))
+            ->post(route('register.level.store'), ['entry_level' => 'intermediate'])
+            ->assertRedirect(route('register.level'))
+            ->assertSessionHasErrors('entry_level');
+    }
+
+    public function test_final_waiting_slot_cannot_be_assigned_to_two_verified_applicants(): void
+    {
+        Registration::factory()->count(2)->create(['entry_level' => 'beginner', 'slot_status' => 'confirmed']);
+        Registration::factory()->create([
+            'entry_level' => 'beginner',
+            'slot_status' => 'waiting',
+            'waiting_list_position' => 1,
+            'confirmed_at' => null,
+        ]);
+        $first = Registration::factory()->create([
+            'entry_level' => 'beginner',
+            'slot_status' => 'pending_verification',
+            'email' => 'first.final@example.com',
+        ]);
+        $second = Registration::factory()->create([
+            'entry_level' => 'beginner',
+            'slot_status' => 'pending_verification',
+            'email' => 'second.final@example.com',
+        ]);
+
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)->post(route('admin.applicants.approve', $first))->assertRedirect();
+        $this->actingAs($admin)
+            ->from(route('admin.applicants.show', $second))
+            ->post(route('admin.applicants.approve', $second))
+            ->assertRedirect(route('admin.applicants.show', $second))
+            ->assertSessionHasErrors('entry_level');
+
+        $this->assertSame(SlotStatus::Waiting, $first->fresh()->slot_status);
+        $this->assertSame(2, $first->fresh()->waiting_list_position);
+        $this->assertSame(SlotStatus::PendingVerification, $second->fresh()->slot_status);
+        $status = app(CategoryCapacityService::class)->statusFor('beginner');
+        $this->assertTrue($status['is_full']);
+        $this->assertSame(2, $status['waiting']);
+    }
+
+    public function test_submit_is_rejected_if_category_fills_after_level_selection(): void
+    {
+        Registration::factory()->count(2)->create(['entry_level' => 'beginner', 'slot_status' => 'confirmed']);
+        Registration::factory()->create([
+            'entry_level' => 'beginner',
+            'slot_status' => 'waiting',
+            'waiting_list_position' => 1,
+            'confirmed_at' => null,
+        ]);
+
+        $this->reachPaymentAs('late.slot@example.com');
+
+        Registration::factory()->create([
+            'entry_level' => 'beginner',
+            'slot_status' => 'waiting',
+            'waiting_list_position' => 2,
+            'confirmed_at' => null,
+        ]);
+
+        $before = Registration::query()->count();
+
+        $this->from(route('register.payment'))
+            ->post(route('register.submit'), [
+                'submission_token' => session('registration_wizard.submission_token'),
+                'payment_proof' => $this->fakePng('receipt.png'),
+            ])
+            ->assertRedirect(route('register.category-full', ['level' => 'beginner']));
+
+        $this->assertSame($before, Registration::query()->count());
+        $this->assertDatabaseMissing('registrations', ['email' => 'late.slot@example.com']);
     }
 
     public function test_submitted_registration_stays_pending_until_admin_verifies(): void
@@ -411,7 +507,10 @@ class CategoryCapacityTest extends TestCase
             ->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('2 / 2 confirmed')
-            ->assertSee('1 / 2 waiting');
+            ->assertSee('1 / 2 waiting')
+            ->assertSee('0 regular remaining')
+            ->assertSee('1 waiting remaining')
+            ->assertSee('WAITING LIST ONLY');
     }
 
     private function startWizard(): void
@@ -421,6 +520,16 @@ class CategoryCapacityTest extends TestCase
     }
 
     private function completeRegistrationAs(string $email): void
+    {
+        $this->reachPaymentAs($email);
+
+        $this->post(route('register.submit'), [
+            'submission_token' => session('registration_wizard.submission_token'),
+            'payment_proof' => $this->fakePng('receipt.png'),
+        ])->assertRedirect(route('register.confirmation'));
+    }
+
+    private function reachPaymentAs(string $email): void
     {
         $this->startWizard();
         $this->post(route('register.experience.store'), ['has_tournament_experience' => 'no']);
@@ -436,11 +545,6 @@ class CategoryCapacityTest extends TestCase
         ]);
 
         $this->get(route('register.payment'))->assertOk();
-
-        $this->post(route('register.submit'), [
-            'submission_token' => session('registration_wizard.submission_token'),
-            'payment_proof' => $this->fakePng('receipt.png'),
-        ])->assertRedirect(route('register.confirmation'));
     }
 
     private function fakePng(string $name = 'photo.png'): UploadedFile

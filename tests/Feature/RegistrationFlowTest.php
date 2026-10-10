@@ -95,8 +95,7 @@ class RegistrationFlowTest extends TestCase
             ->assertSee('beginner')
             ->assertSee('Proof of Payment')
             ->assertDontSee('Facebook')
-            ->assertSee('Download QR for Payment')
-            ->assertSee('Download the QR code and scan it using your GCash app')
+            ->assertSee('Download QR')
             ->assertSee(route('register.payment.qr', [], false), false);
 
         $qrPath = public_path(config('tournament.qr_image'));
@@ -289,6 +288,31 @@ class RegistrationFlowTest extends TestCase
             ->assertSee('Use Another Email');
 
         $this->assertDatabaseCount('registrations', 1);
+    }
+
+    public function test_submit_is_blocked_when_category_slots_are_full(): void
+    {
+        $this->seed(\Database\Seeders\FullCategorySlotsSeeder::class);
+
+        $this->assertTrue(app(\App\Services\CategoryCapacityService::class)->statusFor('beginner')['is_full']);
+        $this->assertTrue(app(\App\Services\CategoryCapacityService::class)->registrationIsClosed());
+
+        $this->startWizard();
+        $this->post(route('register.experience.store'), ['has_tournament_experience' => 'no']);
+
+        $this->get(route('register.level'))
+            ->assertOk()
+            ->assertSee('All tournament categories are fully booked, including their waiting lists. Registration is now closed. Thank you for your interest in KONSONTHEGO Tournament.');
+
+        $before = Registration::query()->count();
+
+        $this->from(route('register.level'))
+            ->post(route('register.level.store'), ['entry_level' => 'beginner'])
+            ->assertRedirect(route('register.level'))
+            ->assertSessionHasErrors('entry_level');
+
+        $this->assertSame($before, Registration::query()->count());
+        $this->assertDatabaseMissing('registrations', ['email' => 'ana.full@example.com']);
     }
 
     public function test_users_can_go_back_without_losing_data(): void

@@ -57,6 +57,7 @@ class CategoryCapacityService
         $waitingRemaining = max(0, $limits['waiting_capacity'] - $waiting);
         $isFull = $regularRemaining === 0 && $waitingRemaining === 0;
         $isWaiting = $regularRemaining === 0 && $waitingRemaining > 0;
+        $availability = $isFull ? 'full' : ($isWaiting ? 'waiting' : 'open');
 
         return [
             'level' => $enum,
@@ -69,7 +70,29 @@ class CategoryCapacityService
             'is_full' => $isFull,
             'is_waiting' => $isWaiting,
             'is_open' => $regularRemaining > 0,
+            'availability' => $availability,
+            'availability_label' => match ($availability) {
+                'full' => 'FULL',
+                'waiting' => 'WAITING LIST ONLY',
+                default => 'OPEN',
+            },
         ];
+    }
+
+    public function registrationIsClosed(): bool
+    {
+        foreach (EntryLevel::cases() as $level) {
+            if (! $this->statusFor($level)['is_full']) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function closedMessage(): string
+    {
+        return 'All tournament categories are fully booked, including their waiting lists. Registration is now closed. Thank you for your interest in KONSONTHEGO Tournament.';
     }
 
     public function fullMessage(EntryLevel|string $level): string
@@ -78,6 +101,24 @@ class CategoryCapacityService
         $label = strtoupper($status['level']->label());
 
         return $label.' CATEGORY IS FULL. The '.$status['capacity'].' tournament slots and '.$status['waiting_capacity'].' waiting-list slots for '.$status['level']->label().' have already been filled.';
+    }
+
+    public function assertAcceptingApplications(EntryLevel|string $level): void
+    {
+        if (DB::transactionLevel() === 0) {
+            DB::transaction(fn () => $this->assertAcceptingApplications($level));
+
+            return;
+        }
+
+        $enum = $level instanceof EntryLevel ? $level : EntryLevel::from($level);
+        $this->lockCategory($enum);
+
+        if ($this->statusFor($enum)['is_full']) {
+            throw ValidationException::withMessages([
+                'entry_level' => $this->fullMessage($enum),
+            ]);
+        }
     }
 
     /**
@@ -349,7 +390,7 @@ class CategoryCapacityService
         return $next->fresh();
     }
 
-    private function confirmFromWaiting(Registration $registration): void
+    public function confirmFromWaiting(Registration $registration): void
     {
         $registration->update([
             'slot_status' => SlotStatus::Confirmed,
@@ -390,7 +431,7 @@ class CategoryCapacityService
         }
     }
 
-    private function lockCategory(EntryLevel|string $level): void
+    public function lockCategory(EntryLevel|string $level): void
     {
         $key = $level instanceof EntryLevel ? $level->value : $level;
 

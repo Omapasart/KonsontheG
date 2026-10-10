@@ -108,19 +108,15 @@ function initSubmitGuard() {
 function initWaitingNotice() {
     const form = document.querySelector('[data-level-form]');
     const notice = document.getElementById('capacity-notice');
-    const waitingCopy = notice?.querySelector('[data-capacity-waiting]');
-    const fullCopy = notice?.querySelector('[data-capacity-full]');
 
     if (! form || ! notice) {
         return;
     }
 
     const sync = () => {
-        const selected = form.querySelector('input[name="entry_level"]:checked');
+        const selected = form.querySelector('input[name="entry_level"]:checked:not(:disabled)');
         const state = selected?.dataset.capacity ?? 'open';
-        notice.classList.toggle('hidden', state === 'open' || ! selected);
-        waitingCopy?.classList.toggle('hidden', state !== 'waiting');
-        fullCopy?.classList.toggle('hidden', state !== 'full');
+        notice.classList.toggle('hidden', state !== 'waiting');
     };
 
     form.querySelectorAll('input[name="entry_level"]').forEach((input) => {

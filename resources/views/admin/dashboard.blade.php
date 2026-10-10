@@ -4,6 +4,7 @@
 @section('heading', 'Dashboard')
 
 @section('content')
+    @include('admin.partials.roster-actions')
     <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         <a href="{{ route('admin.applicants.index') }}" class="stat-card">
             <p class="stat-label">Total Applicants</p>
@@ -49,18 +50,23 @@
                 <p class="stat-label">{{ $stats['level']->label() }}</p>
                 <p class="stat-value">{{ $stats['total'] }}</p>
                 <p class="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[10px] leading-tight text-white/55">
-                    <span>{{ $stats['approved'] }} Approved</span>
-                    <span>{{ $stats['pending'] }} Pending</span>
-                    <span>{{ $stats['rejected'] }} Rejected</span>
+                    <span>{{ $stats['approved'] }} Approved </span>
+                    <span>{{ $stats['pending'] }} Pending </span>
+                    <span>{{ $stats['rejected'] }} Rejected </span>
                 </p>
                 @if (isset($categoryCapacity[$levelValue]))
                     @php $capacity = $categoryCapacity[$levelValue]; @endphp
                     <div class="mt-1.5 space-y-0.5 text-[10px] uppercase leading-tight tracking-widest text-white/70">
                         <p>{{ $capacity['confirmed'] }} / {{ $capacity['capacity'] }} confirmed</p>
                         <p class="text-amber-200">{{ $capacity['waiting'] }} / {{ $capacity['waiting_capacity'] }} waiting</p>
-                        @if ($capacity['regular_remaining'] > 0)
-                            <p class="text-ktg-lime">{{ $capacity['regular_remaining'] }} regular slot{{ $capacity['regular_remaining'] === 1 ? '' : 's' }} available</p>
-                        @endif
+                        <p class="text-ktg-lime">{{ $capacity['regular_remaining'] }} regular remaining</p>
+                        <p class="text-amber-200">{{ $capacity['waiting_remaining'] }} waiting remaining</p>
+                        <p @class([
+                            'font-extrabold tracking-[0.2em]',
+                            'text-red-300' => $capacity['is_full'],
+                            'text-amber-300' => $capacity['is_waiting'],
+                            'text-ktg-lime' => $capacity['is_open'],
+                        ])>{{ $capacity['availability_label'] }}</p>
                     </div>
                 @endif
             </a>

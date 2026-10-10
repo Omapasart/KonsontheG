@@ -4,6 +4,7 @@
 @section('heading', 'Applicants')
 
 @section('content')
+    @include('admin.partials.roster-actions')
     <form method="GET" action="{{ route('admin.applicants.index') }}" class="mb-6 grid grid-cols-1 gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 lg:grid-cols-6">
         <div class="lg:col-span-2">
             <label class="field-label">Search</label>

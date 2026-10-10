@@ -18,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class RegistrationService
 {
+    public function __construct(private readonly CategoryCapacityService $capacity) {}
+
     /**
      * @param  array<string, mixed>  $wizard
      */
@@ -80,6 +82,8 @@ class RegistrationService
 
         try {
             $registration = DB::transaction(function () use ($wizard, $submissionToken) {
+                $this->capacity->assertAcceptingApplications((string) $wizard['entry_level']);
+
                 $photoPath = $this->promoteTempFile($wizard['photo_path'], 'photos');
                 $proofPath = $this->promoteTempFile($wizard['payment_proof_path'], 'proofs');
 
