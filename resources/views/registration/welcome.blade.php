@@ -13,7 +13,7 @@
             >
                 @php
                     $slides = [
-                        ['title' => 'Dink after dark holloween open play', 'body' => 'Please complete all registration steps carefully.'],
+                        ['title' => 'Dink after dark halloween open play', 'body' => 'Please complete all registration steps carefully.'],
                         ['title' => 'Personal Information', 'body' => 'Make sure that all information provided is accurate and updated.'],
                         ['title' => 'Email Verification', 'body' => 'Please provide an active and correct email address because your tournament confirmation will be sent there.'],
                         ['title' => 'Payment', 'body' => 'Please complete the required GCash payment and upload a clear proof of payment.'],
