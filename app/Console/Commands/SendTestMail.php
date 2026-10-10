@@ -23,19 +23,14 @@ class SendTestMail extends Command
         }
 
         $this->info('Mailer: '.(string) config('mail.default'));
+        $this->info('Host: '.(string) config('mail.mailers.smtp.host'));
+        $this->info('Port: '.(string) config('mail.mailers.smtp.port'));
         $this->info('From: '.(string) config('mail.from.address'));
         $this->info('To: '.$email);
 
-        if (config('mail.default') === 'resend') {
-            $this->info('Resend API key: '.(filled(config('services.resend.key')) ? 'set' : 'missing'));
-        } else {
-            $this->info('Host: '.(string) config('mail.mailers.smtp.host'));
-            $this->info('Port: '.(string) config('mail.mailers.smtp.port'));
-        }
-
         try {
             Mail::raw(
-                'KONSONTHEGO mail delivery test. If you received this, mail is working.',
+                'KONSONTHEGO mail delivery test. If you received this, SMTP is working.',
                 function ($message) use ($email): void {
                     $message->to($email)->subject('KONSONTHEGO mail test');
                 }
