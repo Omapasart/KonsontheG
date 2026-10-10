@@ -124,15 +124,9 @@ class RegistrationService
     private function notifyParticipant(Registration $registration): void
     {
         try {
-            if (app()->runningUnitTests()) {
-                Mail::to($registration->email)->send(new RegistrationReceived($registration));
-
-                return;
-            }
-
-            Mail::to($registration->email)->queue(new RegistrationReceived($registration));
+            Mail::to($registration->email)->send(new RegistrationReceived($registration));
         } catch (\Throwable $exception) {
-            Log::error('Failed to queue registration email.', [
+            Log::error('Failed to send registration email.', [
                 'registration_id' => $registration->id,
                 'email' => $registration->email,
                 'message' => $exception->getMessage(),
