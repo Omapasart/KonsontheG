@@ -123,41 +123,21 @@ class RegistrationService
 
     private function notifyParticipant(Registration $registration): void
     {
-        $registrationId = $registration->id;
-        $email = $registration->email;
+        try {
+            if (app()->runningUnitTests()) {
+                Mail::to($registration->email)->send(new RegistrationReceived($registration));
 
-        $send = function () use ($registrationId, $email): void {
-            try {
-                $fresh = Registration::query()->find($registrationId);
-
-                if ($fresh === null) {
-                    return;
-                }
-
-                Mail::to($email)->send(new RegistrationReceived($fresh));
-            } catch (\Throwable $exception) {
-                Log::error('Failed to send registration email.', [
-                    'registration_id' => $registrationId,
-                    'email' => $email,
-                    'message' => $exception->getMessage(),
-                ]);
+                return;
             }
-        };
 
-        if (app()->runningUnitTests()) {
-            $send();
-
-            return;
+            Mail::to($registration->email)->queue(new RegistrationReceived($registration));
+        } catch (\Throwable $exception) {
+            Log::error('Failed to queue registration email.', [
+                'registration_id' => $registration->id,
+                'email' => $registration->email,
+                'message' => $exception->getMessage(),
+            ]);
         }
-
-        app()->terminating(function () use ($send): void {
-            if (function_exists('fastcgi_finish_request')) {
-                session_write_close();
-                fastcgi_finish_request();
-            }
-
-            $send();
-        });
     }
 
     private function promoteTempFile(string $tempPath, string $folder): string
