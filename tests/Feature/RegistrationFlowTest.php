@@ -85,7 +85,6 @@ class RegistrationFlowTest extends TestCase
             'middle_initial' => 'A',
             'contact_number' => '09171234567',
             'address' => 'Malaybalay City, Bukidnon',
-            'facebook' => 'luis.reyes',
             'email' => 'Luis.Reyes@example.com',
             'photo' => $this->fakePng('player.png'),
         ])->assertRedirect(route('register.payment'));
@@ -94,7 +93,17 @@ class RegistrationFlowTest extends TestCase
             ->assertOk()
             ->assertSee('Luis')
             ->assertSee('beginner')
-            ->assertSee('Proof of Payment');
+            ->assertSee('Proof of Payment')
+            ->assertDontSee('Facebook')
+            ->assertSee('Download QR for Payment')
+            ->assertSee('Download the QR code and scan it using your GCash app')
+            ->assertSee(route('register.payment.qr', [], false), false);
+
+        $qrPath = public_path(config('tournament.qr_image'));
+        $this->assertFileExists($qrPath);
+        $this->get(route('register.payment.qr'))
+            ->assertOk()
+            ->assertDownload('KONSONTHEGO-GCash-Payment-QR.'.pathinfo($qrPath, PATHINFO_EXTENSION));
 
         $token = session('registration_wizard.submission_token');
         $this->assertNotEmpty($token);
@@ -109,6 +118,9 @@ class RegistrationFlowTest extends TestCase
             ->assertSee('Thank You for Your Interest in KONSONTHEGO')
             ->assertSee('luis.reyes@example.com')
             ->assertSee('KTG-')
+            ->assertSee('Done')
+            ->assertSee('Slot Status: Pending Verification')
+            ->assertSee('Your slot will be confirmed only after an administrator verifies')
             ->assertDontSee(config('tournament.gcash_number'));
 
         $this->assertDatabaseCount('registrations', 1);
@@ -120,6 +132,7 @@ class RegistrationFlowTest extends TestCase
         $this->assertSame('luis.reyes@example.com', $registration->email);
         $this->assertSame('pending', $registration->payment_status->value);
         $this->assertSame('pending', $registration->registration_status->value);
+        $this->assertSame('pending_verification', $registration->slot_status->value);
         $this->assertTrue(Storage::disk('local')->exists($registration->photo_path));
         $this->assertTrue(Storage::disk('local')->exists($registration->payment_proof_path));
         $this->assertStringStartsWith('registrations/photos/', $registration->photo_path);
@@ -128,8 +141,22 @@ class RegistrationFlowTest extends TestCase
         Mail::assertSent(RegistrationReceived::class, function (RegistrationReceived $mail) use ($registration) {
             return $mail->registration->is($registration)
                 && $mail->hasTo('luis.reyes@example.com')
-                && $mail->hasSubject('You are registered — KONSONTHEGO '.$registration->registration_number);
+                && $this->applicationReceivedContainsRegistrationDetails($mail, $registration);
         });
+    }
+
+    public function test_application_received_email_shows_pending_verification_slot_status(): void
+    {
+        $registration = Registration::factory()->create([
+            'entry_level' => 'novice',
+            'slot_status' => 'pending_verification',
+        ]);
+
+        $mail = new RegistrationReceived($registration);
+
+        $this->assertTrue($this->applicationReceivedContainsRegistrationDetails($mail, $registration));
+        $this->assertSame('Pending Verification', $registration->slot_status->label());
+        $this->assertSame('Novice', $registration->entry_level->label());
     }
 
     public function test_duplicate_submission_token_does_not_create_a_second_record(): void
@@ -164,6 +191,106 @@ class RegistrationFlowTest extends TestCase
         $this->assertDatabaseCount('registrations', 1);
     }
 
+    public function test_duplicate_email_is_rejected_on_personal_data_even_with_different_casing(): void
+    {
+        Registration::factory()->create(['email' => 'taken@example.com']);
+
+        $this->startWizard();
+        $this->post(route('register.experience.store'), ['has_tournament_experience' => 'no']);
+        $this->post(route('register.level.store'), ['entry_level' => 'beginner']);
+
+        $this->from(route('register.personal'))
+            ->post(route('register.personal.store'), [
+                'last_name' => 'Santos',
+                'first_name' => 'Ana',
+                'contact_number' => '09171234567',
+                'address' => 'Malaybalay City',
+                'email' => 'Taken@Example.com',
+                'photo' => $this->fakePng('ana.png'),
+            ])
+            ->assertSessionHasErrors('email')
+            ->assertRedirect(route('register.personal'));
+
+        $this->assertDatabaseCount('registrations', 1);
+    }
+
+    public function test_start_again_allows_a_new_applicant_with_a_different_email(): void
+    {
+        $this->startWizard();
+        $this->post(route('register.experience.store'), ['has_tournament_experience' => 'no']);
+        $this->post(route('register.level.store'), ['entry_level' => 'beginner']);
+        $this->post(route('register.personal.store'), [
+            'last_name' => 'Reyes',
+            'first_name' => 'Luis',
+            'contact_number' => '09171234567',
+            'address' => 'Malaybalay City',
+            'email' => 'luis.reyes@example.com',
+            'photo' => $this->fakePng('player.png'),
+        ]);
+        $this->get(route('register.payment'))->assertOk();
+        $this->post(route('register.submit'), [
+            'submission_token' => session('registration_wizard.submission_token'),
+            'payment_proof' => $this->fakePng('receipt.png'),
+        ])->assertRedirect(route('register.confirmation'));
+
+        $this->post(route('register.start-again'))->assertRedirect(route('register.welcome'));
+
+        $this->startWizard();
+        $this->post(route('register.experience.store'), ['has_tournament_experience' => 'yes']);
+        $this->post(route('register.level.store'), ['entry_level' => 'novice']);
+        $this->from(route('register.personal'))
+            ->post(route('register.personal.store'), [
+                'last_name' => 'Reyes',
+                'first_name' => 'Luis',
+                'contact_number' => '09171234567',
+                'address' => 'Malaybalay City',
+                'email' => 'luis.reyes@example.com',
+                'photo' => $this->fakePng('player-2.png'),
+            ])
+            ->assertSessionHasErrors('email')
+            ->assertRedirect(route('register.personal'));
+
+        $this->post(route('register.personal.store'), [
+            'last_name' => 'Cruz',
+            'first_name' => 'Maria',
+            'contact_number' => '09179876543',
+            'address' => 'Valencia City',
+            'email' => 'maria.cruz@example.com',
+            'photo' => $this->fakePng('maria.png'),
+        ])->assertRedirect(route('register.payment'));
+    }
+
+    public function test_submit_rejects_an_email_registered_after_personal_data(): void
+    {
+        $this->startWizard();
+        $this->post(route('register.experience.store'), ['has_tournament_experience' => 'no']);
+        $this->post(route('register.level.store'), ['entry_level' => 'beginner']);
+        $this->post(route('register.personal.store'), [
+            'last_name' => 'Reyes',
+            'first_name' => 'Luis',
+            'contact_number' => '09171234567',
+            'address' => 'Malaybalay City',
+            'email' => 'race@example.com',
+            'photo' => $this->fakePng('player.png'),
+        ])->assertRedirect(route('register.payment'));
+
+        Registration::factory()->create(['email' => 'race@example.com']);
+
+        $this->from(route('register.payment'))
+            ->post(route('register.submit'), [
+                'submission_token' => session('registration_wizard.submission_token'),
+                'payment_proof' => $this->fakePng('receipt.png'),
+            ])
+            ->assertRedirect(route('register.email-taken'));
+
+        $this->get(route('register.email-taken'))
+            ->assertOk()
+            ->assertSee('Email Already Registered')
+            ->assertSee('Use Another Email');
+
+        $this->assertDatabaseCount('registrations', 1);
+    }
+
     public function test_users_can_go_back_without_losing_data(): void
     {
         $this->startWizard();
@@ -178,6 +305,28 @@ class RegistrationFlowTest extends TestCase
         $this->get(route('register.level'))
             ->assertOk()
             ->assertSee('novice');
+    }
+
+    private function applicationReceivedContainsRegistrationDetails(RegistrationReceived $mail, Registration $registration): bool
+    {
+        $html = $mail->render();
+        $text = view('emails.registration-received-text', ['registration' => $registration])->render();
+
+        foreach ([$html, $text] as $body) {
+            if (
+                ! str_contains($body, 'Hello '.$registration->fullName())
+                || ! str_contains($body, 'Thank you for submitting your application and completing your GCash payment')
+                || ! str_contains($body, 'Registration Details')
+                || ! str_contains($body, $registration->registration_number)
+                || ! str_contains($body, $registration->entry_level->label())
+                || ! str_contains($body, $registration->slot_status->label())
+                || ! str_contains($body, 'subject to verification and confirmation')
+            ) {
+                return false;
+            }
+        }
+
+        return $mail->hasSubject('Application Received');
     }
 
     private function startWizard(): void

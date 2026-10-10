@@ -44,6 +44,14 @@
         @apply border-ktg-lime bg-ktg-lime text-ktg-black shadow-[0_10px_30px_rgba(200,230,0,0.25)];
     }
 
+    .choice-card-disabled {
+        @apply cursor-not-allowed opacity-50;
+    }
+
+    .choice-card-disabled:hover .choice-card-inner {
+        @apply border-white/15;
+    }
+
     .field-label {
         @apply mb-1.5 block text-xs font-bold uppercase tracking-widest text-white/70;
     }
@@ -71,15 +79,15 @@
     }
 
     .stat-card {
-        @apply rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-ktg-lime/40;
+        @apply block overflow-visible rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 transition hover:border-ktg-lime/40;
     }
 
     .stat-label {
-        @apply text-xs font-bold uppercase tracking-widest text-white/45;
+        @apply text-[10px] font-bold uppercase leading-tight tracking-widest text-white/45;
     }
 
     .stat-value {
-        @apply mt-2 font-display text-4xl italic;
+        @apply mt-1 font-display text-2xl italic leading-none;
     }
 
     .admin-table {
@@ -113,5 +121,9 @@
 
     .badge-danger {
         @apply bg-red-500/20 text-red-200;
+    }
+
+    .badge-withdrawn {
+        @apply bg-white/12 text-white/75 ring-1 ring-white/25;
     }
 }

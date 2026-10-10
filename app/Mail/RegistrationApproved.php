@@ -17,12 +17,15 @@ class RegistrationApproved extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'KONSONTHEGO Tournament Registration Approved',
+            subject: 'Registration Verified — Slot Confirmation',
         );
     }
 
     public function content(): Content
     {
-        return new Content(view: 'emails.registration-approved');
+        return new Content(
+            view: 'emails.registration-approved',
+            text: 'emails.registration-approved-text',
+        );
     }
 }

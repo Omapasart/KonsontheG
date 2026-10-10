@@ -16,4 +16,24 @@ enum EntryLevel: string
             self::Intermediate => 'Intermediate',
         };
     }
+
+    public function rank(): int
+    {
+        return match ($this) {
+            self::Beginner => 1,
+            self::Novice => 2,
+            self::Intermediate => 3,
+        };
+    }
+
+    /**
+     * @return list<self>
+     */
+    public function higherLevels(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $level) => $level->rank() > $this->rank()
+        ));
+    }
 }

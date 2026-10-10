@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
+use App\Enums\SlotStatus;
 use App\Mail\RegistrationReceived;
 use App\Models\Registration;
 use App\Support\RegistrationWizard;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -50,6 +52,17 @@ class RegistrationService
                 'registration' => 'Please complete all required information before submitting: '.implode(', ', $missing).'.',
             ]);
         }
+
+        $this->assertEmailAvailable((string) $wizard['email']);
+    }
+
+    public function assertEmailAvailable(string $email): void
+    {
+        if (Registration::emailIsRegistered($email)) {
+            throw ValidationException::withMessages([
+                'email' => Registration::EMAIL_TAKEN_MESSAGE,
+            ]);
+        }
     }
 
     /**
@@ -63,27 +76,37 @@ class RegistrationService
             return $existing;
         }
 
-        $registration = DB::transaction(function () use ($wizard, $submissionToken) {
-            $photoPath = $this->promoteTempFile($wizard['photo_path'], 'photos');
-            $proofPath = $this->promoteTempFile($wizard['payment_proof_path'], 'proofs');
+        $this->assertEmailAvailable((string) $wizard['email']);
 
-            return Registration::create([
-                'has_tournament_experience' => $wizard['has_tournament_experience'],
-                'entry_level' => $wizard['entry_level'],
-                'last_name' => $wizard['last_name'],
-                'first_name' => $wizard['first_name'],
-                'middle_initial' => $wizard['middle_initial'] ?? null,
-                'contact_number' => $wizard['contact_number'],
-                'address' => $wizard['address'],
-                'facebook' => $wizard['facebook'] ?? null,
-                'email' => $wizard['email'],
-                'photo_path' => $photoPath,
-                'payment_proof_path' => $proofPath,
-                'payment_status' => PaymentStatus::Pending,
-                'registration_status' => RegistrationStatus::Pending,
-                'submission_token' => $submissionToken,
+        try {
+            $registration = DB::transaction(function () use ($wizard, $submissionToken) {
+                $photoPath = $this->promoteTempFile($wizard['photo_path'], 'photos');
+                $proofPath = $this->promoteTempFile($wizard['payment_proof_path'], 'proofs');
+
+                return Registration::create([
+                    'has_tournament_experience' => $wizard['has_tournament_experience'],
+                    'entry_level' => $wizard['entry_level'],
+                    'last_name' => $wizard['last_name'],
+                    'first_name' => $wizard['first_name'],
+                    'middle_initial' => $wizard['middle_initial'] ?? null,
+                    'contact_number' => $wizard['contact_number'],
+                    'address' => $wizard['address'],
+                    'email' => Registration::normalizeEmail($wizard['email'] ?? null),
+                    'photo_path' => $photoPath,
+                    'payment_proof_path' => $proofPath,
+                    'payment_status' => PaymentStatus::Pending,
+                    'registration_status' => RegistrationStatus::Pending,
+                    'slot_status' => SlotStatus::PendingVerification,
+                    'waiting_list_position' => null,
+                    'confirmed_at' => null,
+                    'submission_token' => $submissionToken,
+                ]);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            throw ValidationException::withMessages([
+                'email' => Registration::EMAIL_TAKEN_MESSAGE,
             ]);
-        });
+        }
 
         $registration = $registration->refresh();
         $this->notifyParticipant($registration);

@@ -14,21 +14,22 @@
             <div id="sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-black/70 lg:hidden"></div>
 
             <aside id="admin-sidebar" class="fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col border-r border-white/10 bg-[#101010] pointer-events-none transition-transform lg:static lg:translate-x-0 lg:pointer-events-auto">
-                <div class="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-                    <img src="{{ asset('images/konsonthego-logo.png') }}" alt="KONSONTHEGO" class="h-10 w-auto">
-                    <div>
-                        <p class="font-display text-sm uppercase italic text-ktg-lime">Admin</p>
-                        <p class="text-xs text-white/50">Tournament Manager</p>
+                <div class="flex items-center gap-3 border-b border-white/10 px-4 py-4">
+                    <img src="{{ asset('images/konsonthego-logo.png') }}" alt="KONSONTHEGO" class="h-10 w-10 shrink-0 object-contain">
+                    <div class="min-w-0 flex-1">
+                        <p class="font-display text-sm uppercase italic leading-none text-ktg-lime">Admin</p>
+                        <p class="mt-1 text-xs leading-snug text-white/50">Tournament Manager</p>
                     </div>
                 </div>
 
                 <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4 text-sm">
                     <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'nav-link-active' : '' }}">Dashboard</a>
-                    <a href="{{ route('admin.applicants.index') }}" class="nav-link {{ request()->routeIs('admin.applicants.*') && ! request()->filled('registration_status') && ! request()->filled('payment_status') ? 'nav-link-active' : '' }}">Applicants</a>
+                    <a href="{{ route('admin.applicants.index') }}" class="nav-link {{ request()->routeIs('admin.applicants.*') && ! request()->filled('registration_status') && ! request()->filled('payment_status') && ! request()->filled('slot_status') && request('status') !== 'withdrawn' ? 'nav-link-active' : '' }}">Applicants</a>
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'pending']) }}" class="nav-link {{ request('registration_status') === 'pending' ? 'nav-link-active' : '' }}">Pending Review</a>
                     <a href="{{ route('admin.applicants.index', ['payment_status' => 'pending']) }}" class="nav-link {{ request('payment_status') === 'pending' && request('registration_status') === null ? 'nav-link-active' : '' }}">Payment Verification</a>
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'approved']) }}" class="nav-link {{ request('registration_status') === 'approved' ? 'nav-link-active' : '' }}">Approved</a>
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'rejected']) }}" class="nav-link {{ request('registration_status') === 'rejected' ? 'nav-link-active' : '' }}">Rejected</a>
+                    <a href="{{ route('admin.waiting-list') }}" class="nav-link {{ request()->routeIs('admin.waiting-list') ? 'nav-link-active' : '' }}">Waiting List</a>
                 </nav>
 
                 <div class="border-t border-white/10 px-3 py-4 text-sm">

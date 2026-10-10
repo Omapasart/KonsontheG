@@ -12,7 +12,7 @@
         <div>
             <label class="field-label">Entry Level</label>
             <select name="entry_level" class="field-input">
-                <option value="">All</option>
+                <option value="">All Levels</option>
                 @foreach ($levels as $level)
                     <option value="{{ $level->value }}" @selected($filters['entry_level'] === $level->value)>{{ $level->label() }}</option>
                 @endforeach
@@ -45,6 +45,15 @@
                 @endforeach
             </select>
         </div>
+        <div>
+            <label class="field-label">Slot Status</label>
+            <select name="slot_status" class="field-input">
+                <option value="">All Slots</option>
+                @foreach ($slotStatuses as $status)
+                    <option value="{{ $status->value }}" @selected($filters['slot_status'] === $status->value)>{{ $status->label() }}</option>
+                @endforeach
+            </select>
+        </div>
         <div class="lg:col-span-2">
             <label class="field-label">Sort</label>
             <select name="sort" class="field-input">
@@ -71,6 +80,8 @@
                     <th>Contact Number</th>
                     <th>Email</th>
                     <th>Entry Level</th>
+                    <th>Transfer</th>
+                    <th>Slot Status</th>
                     <th>Experience</th>
                     <th>Payment Status</th>
                     <th>Registration Status</th>
@@ -80,7 +91,7 @@
             </thead>
             <tbody>
                 @forelse ($applicants as $applicant)
-                    <tr>
+                    <tr @class(['opacity-80' => $applicant->slot_status->value === 'withdrawn'])>
                         <td class="font-semibold text-ktg-lime">{{ $applicant->registration_number }}</td>
                         <td>
                             <a href="{{ route('admin.applicants.show', $applicant) }}" aria-label="View {{ $applicant->fullName() }}">
@@ -91,14 +102,31 @@
                         <td>{{ $applicant->contact_number }}</td>
                         <td>{{ $applicant->email }}</td>
                         <td class="uppercase">{{ $applicant->entry_level->label() }}</td>
+                        <td>
+                            @if ($applicant->latestTransferRequest)
+                                @include('admin.partials.status-badge', [
+                                    'status' => $applicant->latestTransferRequest->status->value,
+                                    'type' => 'transfer',
+                                    'label' => $applicant->latestTransferRequest->transferLabel(),
+                                ])
+                            @else
+                                @include('admin.partials.status-badge', ['status' => 'none', 'type' => 'transfer', 'label' => 'None'])
+                            @endif
+                        </td>
+                        <td>@include('admin.partials.status-badge', ['status' => $applicant->slot_status->value, 'type' => 'slot', 'label' => $applicant->slotLabel()])</td>
                         <td>{{ $applicant->has_tournament_experience->label() }}</td>
                         <td>@include('admin.partials.status-badge', ['status' => $applicant->payment_status->value, 'type' => 'payment'])</td>
-                        <td>@include('admin.partials.status-badge', ['status' => $applicant->registration_status->value, 'type' => 'registration'])</td>
+                        <td>
+                            @include('admin.partials.status-badge', ['status' => $applicant->registration_status->value, 'type' => 'registration'])
+                            @if ($applicant->slot_status->value === 'withdrawn')
+                                <p class="mt-1 text-[10px] uppercase tracking-widest text-white/45">Slot withdrawn</p>
+                            @endif
+                        </td>
                         <td>{{ $applicant->created_at->format('M j, Y') }}</td>
                         <td><a href="{{ route('admin.applicants.show', $applicant) }}" class="btn-ghost !px-4 !py-2 text-xs">View</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="11" class="py-10 text-center text-white/50">No applicants match these filters.</td></tr>
+                    <tr><td colspan="13" class="py-10 text-center text-white/50">No applicants match these filters.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -106,10 +134,16 @@
 
     <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-sm text-white/50">
+            @php
+                $levelLabel = collect($levels)->first(fn ($level) => $level->value === $filters['entry_level'])?->label();
+                $groupLabel = $filters['slot_status'] === 'withdrawn'
+                    ? 'withdrawn applicants'
+                    : ($levelLabel ? $levelLabel.' applicants' : 'applicants');
+            @endphp
             @if ($applicants->total())
-                Showing {{ $applicants->firstItem() }}–{{ $applicants->lastItem() }} of {{ $applicants->total() }} applicants
+                Showing {{ $applicants->firstItem() }}–{{ $applicants->lastItem() }} of {{ $applicants->total() }} {{ $groupLabel }}
             @else
-                Showing 0 of 0 applicants
+                Showing 0 of 0 {{ $groupLabel }}
             @endif
         </p>
         {{ $applicants->links() }}

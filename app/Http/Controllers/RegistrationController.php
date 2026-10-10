@@ -7,17 +7,23 @@ use App\Http\Requests\StoreExperienceRequest;
 use App\Http\Requests\StorePersonalDataRequest;
 use App\Http\Requests\SubmitRegistrationRequest;
 use App\Models\Registration;
+use App\Services\CategoryCapacityService;
 use App\Services\RegistrationService;
 use App\Support\RegistrationWizard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RegistrationController extends Controller
 {
-    public function __construct(private readonly RegistrationService $registrations) {}
+    public function __construct(
+        private readonly RegistrationService $registrations,
+        private readonly CategoryCapacityService $capacity,
+    ) {}
 
     public function welcome(): View
     {
@@ -50,17 +56,24 @@ class RegistrationController extends Controller
 
     public function level(): View|RedirectResponse
     {
-        return $this->guard(3) ?? view('registration.level', $this->viewData(3));
+        return $this->guard(3) ?? view('registration.level', array_merge($this->viewData(3), [
+            'categories' => $this->capacity->snapshot(),
+        ]));
     }
 
     public function storeLevel(StoreEntryLevelRequest $request): RedirectResponse
     {
+        $level = $request->validated('entry_level');
+        $status = $this->capacity->statusFor($level);
+
         RegistrationWizard::merge([
-            'entry_level' => $request->validated('entry_level'),
+            'entry_level' => $level,
         ]);
         RegistrationWizard::markReached(4);
 
-        return redirect()->route('register.personal');
+        return redirect()
+            ->route('register.personal')
+            ->with('capacity_notice', $status['is_full'] ? 'full' : ($status['is_waiting'] ? 'waiting' : null));
     }
 
     public function personal(): View|RedirectResponse
@@ -80,7 +93,9 @@ class RegistrationController extends Controller
         RegistrationWizard::merge($data);
         RegistrationWizard::markReached(5);
 
-        return redirect()->route('register.payment');
+        return redirect()
+            ->route('register.payment')
+            ->with('email_available', true);
     }
 
     public function payment(): View|RedirectResponse
@@ -98,6 +113,25 @@ class RegistrationController extends Controller
         return view('registration.payment', $this->viewData(5));
     }
 
+    public function downloadPaymentQr(): BinaryFileResponse
+    {
+        $relative = str_replace('\\', '/', ltrim((string) config('tournament.qr_image'), '/'));
+
+        abort_unless($relative !== '' && ! str_contains($relative, '..'), 404);
+
+        $publicRoot = realpath(public_path());
+        $fullPath = realpath(public_path($relative));
+
+        abort_unless(
+            $publicRoot && $fullPath && is_file($fullPath) && str_starts_with($fullPath, $publicRoot.DIRECTORY_SEPARATOR),
+            404
+        );
+
+        $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION) ?: 'jpg');
+
+        return response()->download($fullPath, 'KONSONTHEGO-GCash-Payment-QR.'.$extension);
+    }
+
     public function submit(SubmitRegistrationRequest $request): RedirectResponse
     {
         $blocked = $this->guard(5);
@@ -113,12 +147,7 @@ class RegistrationController extends Controller
 
         if ($existing) {
             session()->forget(RegistrationWizard::SESSION_KEY);
-            session(['completed_registration' => [
-                'id' => $existing->id,
-                'number' => $existing->registration_number,
-                'email' => $existing->email,
-                'name' => $existing->fullName(),
-            ]]);
+            session(['completed_registration' => $this->completedPayload($existing)]);
 
             return redirect()->route('register.confirmation');
         }
@@ -139,18 +168,60 @@ class RegistrationController extends Controller
 
         $this->registrations->assertComplete($wizard, false);
 
-        $registration = $this->registrations->submit($wizard, $token);
+        try {
+            $registration = $this->registrations->submit($wizard, $token);
+        } catch (ValidationException $exception) {
+            if ($exception->errors()['email'] ?? null) {
+                return redirect()->route('register.email-taken');
+            }
+
+            if ($exception->errors()['entry_level'] ?? null) {
+                return redirect()->route('register.category-full', [
+                    'level' => $wizard['entry_level'] ?? null,
+                ]);
+            }
+
+            throw $exception;
+        }
 
         session()->forget(RegistrationWizard::SESSION_KEY);
-        session(['completed_registration' => [
-            'id' => $registration->id,
-            'number' => $registration->registration_number,
-            'email' => $registration->email,
-            'name' => $registration->fullName(),
-        ]]);
+        session(['completed_registration' => $this->completedPayload($registration)]);
         $request->session()->regenerateToken();
 
         return redirect()->route('register.confirmation');
+    }
+
+    public function startAgain(): RedirectResponse
+    {
+        RegistrationWizard::forget();
+        session()->forget('completed_registration');
+
+        return redirect()->route('register.welcome');
+    }
+
+    public function emailTaken(): View|RedirectResponse
+    {
+        return view('registration.email-taken', [
+            'step' => RegistrationWizard::reached(),
+            'wizard' => RegistrationWizard::data(),
+        ]);
+    }
+
+    public function categoryFull(): View
+    {
+        $level = request()->query('level', RegistrationWizard::data()['entry_level'] ?? 'beginner');
+
+        try {
+            $status = $this->capacity->statusFor((string) $level);
+        } catch (\Throwable) {
+            $status = $this->capacity->statusFor('beginner');
+        }
+
+        return view('registration.category-full', [
+            'step' => RegistrationWizard::reached(),
+            'wizard' => RegistrationWizard::data(),
+            'status' => $status,
+        ]);
     }
 
     public function confirmation(): View|RedirectResponse
@@ -177,6 +248,22 @@ class RegistrationController extends Controller
     public function previewProof(): StreamedResponse
     {
         return $this->preview('payment_proof_path');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function completedPayload(Registration $registration): array
+    {
+        return [
+            'id' => $registration->id,
+            'number' => $registration->registration_number,
+            'email' => $registration->email,
+            'name' => $registration->fullName(),
+            'entry_level' => $registration->entry_level->label(),
+            'slot_status' => $registration->slot_status->value,
+            'waiting_list_position' => $registration->waiting_list_position,
+        ];
     }
 
     private function preview(string $key): StreamedResponse

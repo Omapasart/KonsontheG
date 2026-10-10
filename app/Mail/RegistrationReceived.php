@@ -17,7 +17,7 @@ class RegistrationReceived extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'You are registered — KONSONTHEGO '.$this->registration->registration_number,
+            subject: 'Application Received',
         );
     }
 
@@ -25,6 +25,7 @@ class RegistrationReceived extends Mailable
     {
         return new Content(
             view: 'emails.registration-received',
+            text: 'emails.registration-received-text',
         );
     }
 }

@@ -2,8 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Registration;
 use App\Support\RegistrationWizard;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Validator;
 
 class SubmitRegistrationRequest extends FormRequest
 {
@@ -32,6 +36,42 @@ class SubmitRegistrationRequest extends FormRequest
             ],
             'submission_token' => ['required', 'string', 'size:64'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $email = Registration::normalizeEmail(RegistrationWizard::data()['email'] ?? null);
+
+            if ($email !== '' && Registration::emailIsRegistered($email)) {
+                $validator->errors()->add('email', Registration::EMAIL_TAKEN_MESSAGE);
+            }
+
+            $level = RegistrationWizard::data()['entry_level'] ?? null;
+
+            if (is_string($level) && $level !== '') {
+                $capacity = app(\App\Services\CategoryCapacityService::class);
+
+                if ($capacity->statusFor($level)['is_full']) {
+                    $validator->errors()->add('entry_level', $capacity->fullMessage($level));
+                }
+            }
+        });
+    }
+
+    protected function failedValidation(ValidatorContract $validator): void
+    {
+        if ($validator->errors()->has('email')) {
+            throw new HttpResponseException(redirect()->route('register.email-taken'));
+        }
+
+        if ($validator->errors()->has('entry_level')) {
+            throw new HttpResponseException(redirect()->route('register.category-full', [
+                'level' => RegistrationWizard::data()['entry_level'] ?? 'beginner',
+            ]));
+        }
+
+        parent::failedValidation($validator);
     }
 
     /**

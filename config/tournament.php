@@ -18,10 +18,25 @@ return [
     'gcash_number' => env('TOURNAMENT_GCASH_NUMBER', env('TOURNAMENT_ACCOUNT_NUMBER', '09XXXXXXXXX')),
     'payment_notes' => env('TOURNAMENT_PAYMENT_NOTES', 'Send via GCash and use your full name as the payment message/reference.'),
     'amount_label' => env('TOURNAMENT_AMOUNT_LABEL', 'Registration fee: TBA'),
-    'qr_image' => env('TOURNAMENT_QR_IMAGE', 'images/payment-qr.svg'),
+    'qr_image' => env('TOURNAMENT_QR_IMAGE', 'images/GCASH_QR.jpg'),
 
     'photo_max_kb' => (int) env('TOURNAMENT_PHOTO_MAX_KB', 2048),
     'proof_max_kb' => (int) env('TOURNAMENT_PROOF_MAX_KB', 5120),
 
     'confirmation_hours' => 28,
+
+    'categories' => [
+        'beginner' => [
+            'capacity' => (int) env('TOURNAMENT_BEGINNER_CAPACITY', 36),
+            'waiting_capacity' => (int) env('TOURNAMENT_BEGINNER_WAITING', 5),
+        ],
+        'novice' => [
+            'capacity' => (int) env('TOURNAMENT_NOVICE_CAPACITY', 48),
+            'waiting_capacity' => (int) env('TOURNAMENT_NOVICE_WAITING', 5),
+        ],
+        'intermediate' => [
+            'capacity' => (int) env('TOURNAMENT_INTERMEDIATE_CAPACITY', 36),
+            'waiting_capacity' => (int) env('TOURNAMENT_INTERMEDIATE_WAITING', 5),
+        ],
+    ],
 ];

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Registration;
 use App\Support\RegistrationWizard;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePersonalDataRequest extends FormRequest
 {
@@ -20,7 +22,7 @@ class StorePersonalDataRequest extends FormRequest
             ]);
         }
 
-        foreach (['last_name', 'first_name', 'middle_initial', 'address', 'facebook', 'email'] as $field) {
+        foreach (['last_name', 'first_name', 'middle_initial', 'address', 'email'] as $field) {
             if ($this->has($field) && is_string($this->input($field))) {
                 $value = trim(strip_tags($this->input($field)));
                 if ($field === 'email') {
@@ -47,8 +49,13 @@ class StorePersonalDataRequest extends FormRequest
             'middle_initial' => ['nullable', 'string', 'max:5', 'regex:/^[A-Za-z.]+$/'],
             'contact_number' => ['required', 'string', 'regex:/^(09|\+639|639)\d{9}$/'],
             'address' => ['required', 'string', 'max:500'],
-            'facebook' => ['nullable', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email:rfc', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'email:rfc',
+                'max:255',
+                Rule::unique('registrations', 'email'),
+            ],
             'photo' => [
                 $photoRequired,
                 'file',
@@ -73,6 +80,7 @@ class StorePersonalDataRequest extends FormRequest
             'photo.max' => 'The photo may not be larger than :max kilobytes.',
             'middle_initial.regex' => 'Middle initial may only contain letters.',
             'email.email' => 'Please provide a valid email address.',
+            'email.unique' => Registration::EMAIL_TAKEN_MESSAGE,
         ];
     }
 }

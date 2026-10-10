@@ -9,17 +9,32 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $user = User::query()->firstOrNew([
-            'email' => env('ADMIN_EMAIL', 'admin@konsonthego.test'),
-        ]);
+        foreach (config('admins.accounts', []) as $account) {
+            $email = strtolower(trim((string) ($account['email'] ?? '')));
+            $name = trim((string) ($account['name'] ?? ''));
+            $password = (string) ($account['password'] ?? '');
 
-        $user->name = env('ADMIN_NAME', 'KONSONTHEGO Admin');
-        $user->is_admin = true;
+            if ($email === '' || $password === '' || $name === '') {
+                continue;
+            }
 
-        if (! $user->exists) {
-            $user->password = env('ADMIN_PASSWORD', 'password');
+            $user = User::query()->where('email', $email)->first();
+
+            if ($user) {
+                if (! $user->is_admin) {
+                    $user->forceFill(['is_admin' => true])->save();
+                }
+
+                continue;
+            }
+
+            User::query()->create([
+                'name' => $name,
+                'email' => $email,
+                'password' => $password,
+                'is_admin' => true,
+                'email_verified_at' => now(),
+            ]);
         }
-
-        $user->save();
     }
 }

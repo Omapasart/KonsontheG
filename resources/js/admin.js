@@ -71,4 +71,20 @@ document.addEventListener('DOMContentLoaded', () => {
             closeLightbox();
         }
     });
+
+    const withdrawDialog = document.getElementById('withdraw-dialog');
+    document.getElementById('withdraw-open')?.addEventListener('click', () => {
+        withdrawDialog?.showModal();
+    });
+    document.getElementById('withdraw-cancel')?.addEventListener('click', () => {
+        withdrawDialog?.close();
+    });
+
+    const transferDialog = document.getElementById('transfer-dialog');
+    document.getElementById('transfer-open')?.addEventListener('click', () => {
+        transferDialog?.showModal();
+    });
+    document.getElementById('transfer-cancel')?.addEventListener('click', () => {
+        transferDialog?.close();
+    });
 });

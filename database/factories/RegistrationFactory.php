@@ -21,12 +21,14 @@ class RegistrationFactory extends Factory
             'middle_initial' => strtoupper(fake()->randomLetter()),
             'contact_number' => '09'.fake()->numerify('#########'),
             'address' => fake()->address(),
-            'facebook' => null,
             'email' => fake()->unique()->safeEmail(),
             'photo_path' => 'registrations/photos/'.Str::uuid().'.png',
             'payment_proof_path' => 'registrations/proofs/'.Str::uuid().'.png',
             'payment_status' => 'pending',
             'registration_status' => 'pending',
+            'slot_status' => 'pending_verification',
+            'waiting_list_position' => null,
+            'confirmed_at' => null,
             'submission_token' => Str::random(64),
         ];
     }

@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Enums\CategoryTransferStatus;
 use App\Enums\EntryLevel;
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
+use App\Enums\SlotStatus;
 use App\Enums\TournamentExperience;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Registration extends Model
 {
@@ -25,12 +28,15 @@ class Registration extends Model
         'middle_initial',
         'contact_number',
         'address',
-        'facebook',
         'email',
         'photo_path',
         'payment_proof_path',
         'payment_status',
         'registration_status',
+        'slot_status',
+        'waiting_list_position',
+        'confirmed_at',
+        'withdrawn_at',
         'submission_token',
         'rejection_reason',
         'payment_rejection_reason',
@@ -49,15 +55,26 @@ class Registration extends Model
             'entry_level' => EntryLevel::class,
             'payment_status' => PaymentStatus::class,
             'registration_status' => RegistrationStatus::class,
+            'slot_status' => SlotStatus::class,
             'reviewed_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'withdrawn_at' => 'datetime',
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
             'payment_reviewed_at' => 'datetime',
         ];
     }
 
+    public const EMAIL_TAKEN_MESSAGE = 'This email address has already been used for a KONSONTHEGO tournament registration. Only one registration is allowed per email address.';
+
     protected static function booted(): void
     {
+        static::saving(function (Registration $registration): void {
+            if (filled($registration->email)) {
+                $registration->email = strtolower(trim((string) $registration->email));
+            }
+        });
+
         static::created(function (Registration $registration): void {
             if (filled($registration->registration_number)) {
                 return;
@@ -88,6 +105,23 @@ class Registration extends Model
         return $this->hasMany(AdminActivityLog::class)->latest();
     }
 
+    public function transferRequests(): HasMany
+    {
+        return $this->hasMany(CategoryTransferRequest::class)->latest();
+    }
+
+    public function latestTransferRequest(): HasOne
+    {
+        return $this->hasOne(CategoryTransferRequest::class)->latestOfMany();
+    }
+
+    public function pendingTransferRequest(): HasOne
+    {
+        return $this->hasOne(CategoryTransferRequest::class)
+            ->where('status', CategoryTransferStatus::Pending)
+            ->latestOfMany();
+    }
+
     public function fullName(): string
     {
         $middle = filled($this->middle_initial)
@@ -106,27 +140,33 @@ class Registration extends Model
         return trim("{$this->last_name}, {$this->first_name}{$middle}");
     }
 
-    public function facebookHref(): ?string
-    {
-        if (! filled($this->facebook)) {
-            return null;
-        }
-
-        $value = trim($this->facebook);
-
-        if (filter_var($value, FILTER_VALIDATE_URL)) {
-            return $value;
-        }
-
-        if (str_contains(strtolower($value), 'facebook.com')) {
-            return 'https://'.ltrim(preg_replace('#^https?://#i', '', $value), '/');
-        }
-
-        return null;
-    }
-
     public function paymentProofIsPdf(): bool
     {
         return strtolower(pathinfo((string) $this->payment_proof_path, PATHINFO_EXTENSION)) === 'pdf';
+    }
+
+    public static function normalizeEmail(?string $email): string
+    {
+        return strtolower(trim((string) $email));
+    }
+
+    public function slotLabel(): string
+    {
+        if ($this->slot_status === SlotStatus::Waiting) {
+            return 'Waiting #'.($this->waiting_list_position ?: '?');
+        }
+
+        return $this->slot_status?->label() ?? 'Pending Verification';
+    }
+
+    public static function emailIsRegistered(?string $email): bool
+    {
+        $normalized = self::normalizeEmail($email);
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        return self::query()->where('email', $normalized)->exists();
     }
 }

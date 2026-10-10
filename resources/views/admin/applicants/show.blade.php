@@ -26,6 +26,7 @@
             <div class="mt-3 flex flex-wrap gap-2">
                 @include('admin.partials.status-badge', ['status' => $registration->registration_status->value, 'type' => 'registration'])
                 @include('admin.partials.status-badge', ['status' => $registration->payment_status->value, 'type' => 'payment'])
+                @include('admin.partials.status-badge', ['status' => $registration->slot_status->value, 'type' => 'slot', 'label' => $registration->slotLabel()])
             </div>
         </div>
     </section>
@@ -45,6 +46,22 @@
                 <dt class="text-white/45">Registration Status</dt>
                 <dd>@include('admin.partials.status-badge', ['status' => $registration->registration_status->value, 'type' => 'registration'])</dd>
             </div>
+            <div>
+                <dt class="text-white/45">Slot Status</dt>
+                <dd>@include('admin.partials.status-badge', ['status' => $registration->slot_status->value, 'type' => 'slot', 'label' => $registration->slotLabel()])</dd>
+            </div>
+            @if ($registration->confirmed_at)
+                <div>
+                    <dt class="text-white/45">Confirmed At</dt>
+                    <dd>{{ $registration->confirmed_at->format('F j, Y — g:i A') }}</dd>
+                </div>
+            @endif
+            @if ($registration->withdrawn_at)
+                <div>
+                    <dt class="text-white/45">Withdrawn At</dt>
+                    <dd>{{ $registration->withdrawn_at->format('F j, Y — g:i A') }}</dd>
+                </div>
+            @endif
         </dl>
     </section>
 
@@ -79,19 +96,18 @@
                 <dt class="text-white/45">Address</dt>
                 <dd>{{ $registration->address }}</dd>
             </div>
-            <div class="sm:col-span-2">
-                <dt class="text-white/45">Facebook</dt>
-                <dd>
-                    @if ($registration->facebookHref())
-                        <a href="{{ $registration->facebookHref() }}" target="_blank" rel="noopener noreferrer" class="text-ktg-lime underline">{{ $registration->facebook }}</a>
-                    @else
-                        {{ $registration->facebook ?: '—' }}
-                    @endif
-                </dd>
-            </div>
         </dl>
     </section>
 
+    @php
+        $pendingTransfer = $registration->pendingTransferRequest;
+        $latestTransfer = $registration->latestTransferRequest;
+        $higherLevels = $registration->entry_level->higherLevels();
+        $canTransfer = $pendingTransfer === null
+            && $registration->slot_status->value !== 'withdrawn'
+            && $registration->registration_status->value !== 'rejected'
+            && $higherLevels !== [];
+    @endphp
     <section class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 lg:p-8">
         <h3 class="font-display text-xl uppercase italic text-ktg-lime">Tournament Information</h3>
         <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
@@ -100,9 +116,43 @@
                 <dd class="font-semibold uppercase">{{ $registration->has_tournament_experience->label() }}</dd>
             </div>
             <div>
-                <dt class="text-white/45">Entry Level</dt>
+                <dt class="text-white/45">Current Category</dt>
                 <dd class="font-semibold uppercase">{{ $registration->entry_level->label() }}</dd>
             </div>
+            @if ($latestTransfer)
+                <div>
+                    <dt class="text-white/45">Transfer Status</dt>
+                    <dd>@include('admin.partials.status-badge', ['status' => $latestTransfer->status->value, 'type' => 'transfer', 'label' => $latestTransfer->status->label()])</dd>
+                </div>
+                <div>
+                    <dt class="text-white/45">{{ $latestTransfer->status->value === 'accepted' ? 'Previous Category' : 'Proposed Category' }}</dt>
+                    <dd class="uppercase">{{ $latestTransfer->status->value === 'accepted' ? $latestTransfer->current_category->label() : $latestTransfer->requested_category->label() }}</dd>
+                </div>
+                @if ($latestTransfer->status->value === 'accepted')
+                    <div>
+                        <dt class="text-white/45">New Category</dt>
+                        <dd class="uppercase">{{ $latestTransfer->requested_category->label() }}</dd>
+                    </div>
+                @endif
+                <div>
+                    <dt class="text-white/45">Requested By</dt>
+                    <dd>{{ $latestTransfer->requestedBy?->name ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-white/45">Requested At</dt>
+                    <dd>{{ $latestTransfer->requested_at?->format('F j, Y — g:i A') }}</dd>
+                </div>
+                <div>
+                    <dt class="text-white/45">Applicant Response</dt>
+                    <dd>{{ $latestTransfer->applicant_response?->value ? strtoupper($latestTransfer->applicant_response->value) : 'Pending' }}</dd>
+                </div>
+                @if ($latestTransfer->responded_at)
+                    <div>
+                        <dt class="text-white/45">Responded</dt>
+                        <dd>{{ $latestTransfer->responded_at->format('F j, Y — g:i A') }}</dd>
+                    </div>
+                @endif
+            @endif
         </dl>
     </section>
 
@@ -129,16 +179,81 @@
             </div>
         </div>
 
+        @if ($registration->payment_status->value === 'verified')
+            <div class="mt-6 rounded-2xl border border-ktg-lime/30 bg-ktg-lime/10 px-4 py-4">
+                <p class="text-sm font-extrabold uppercase tracking-widest text-ktg-lime">Payment Verified</p>
+                @if ($registration->paymentReviewer || $registration->payment_reviewed_at)
+                    <p class="mt-2 text-sm text-white/70">
+                        @if ($registration->paymentReviewer)
+                            Verified by {{ $registration->paymentReviewer->name }}
+                        @endif
+                        @if ($registration->payment_reviewed_at)
+                            {{ $registration->paymentReviewer ? ' on ' : '' }}{{ $registration->payment_reviewed_at->format('F j, Y — g:i A') }}
+                        @endif
+                    </p>
+                @endif
+            </div>
+        @else
+            <div class="mt-6 flex flex-wrap gap-3">
+                <form method="POST" action="{{ route('admin.applicants.verify-payment', $registration) }}" onsubmit="return confirm('Verify this GCash payment proof?');">
+                    @csrf
+                    <button type="submit" class="btn-primary">Verify Payment</button>
+                </form>
+                <form method="POST" action="{{ route('admin.applicants.reject-payment', $registration) }}" class="flex flex-col gap-2 sm:flex-row">
+                    @csrf
+                    <input type="text" name="reason" class="field-input min-w-56" placeholder="Payment rejection reason (optional)">
+                    <button type="submit" class="rounded-full bg-red-600 px-6 py-3 text-sm font-extrabold uppercase tracking-widest" onclick="return confirm('Reject this payment proof?');">Reject Payment</button>
+                </form>
+            </div>
+        @endif
+    </section>
+
+    <section class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 lg:p-8">
+        <h3 class="font-display text-xl uppercase italic text-ktg-lime">Slot Management</h3>
+        <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+            <div>
+                <dt class="text-white/45">Registration Status</dt>
+                <dd>@include('admin.partials.status-badge', ['status' => $registration->registration_status->value, 'type' => 'registration'])</dd>
+            </div>
+            <div>
+                <dt class="text-white/45">Slot Status</dt>
+                <dd>@include('admin.partials.status-badge', ['status' => $registration->slot_status->value, 'type' => 'slot', 'label' => $registration->slotLabel()])</dd>
+            </div>
+            @if ($registration->confirmed_at)
+                <div>
+                    <dt class="text-white/45">Confirmed At</dt>
+                    <dd>{{ $registration->confirmed_at->format('F j, Y — g:i A') }}</dd>
+                </div>
+            @endif
+            @if ($registration->slot_status->value === 'withdrawn')
+                <div>
+                    <dt class="text-white/45">Withdrawn</dt>
+                    <dd>{{ $registration->withdrawn_at?->format('F j, Y') ?? '—' }}</dd>
+                </div>
+            @endif
+        </dl>
         <div class="mt-6 flex flex-wrap gap-3">
-            <form method="POST" action="{{ route('admin.applicants.verify-payment', $registration) }}" onsubmit="return confirm('Verify this GCash payment proof?');">
-                @csrf
-                <button type="submit" class="btn-primary">Verify Payment</button>
-            </form>
-            <form method="POST" action="{{ route('admin.applicants.reject-payment', $registration) }}" class="flex flex-col gap-2 sm:flex-row">
-                @csrf
-                <input type="text" name="reason" class="field-input min-w-56" placeholder="Payment rejection reason (optional)">
-                <button type="submit" class="rounded-full bg-red-600 px-6 py-3 text-sm font-extrabold uppercase tracking-widest" onclick="return confirm('Reject this payment proof?');">Reject Payment</button>
-            </form>
+            @if ($registration->slot_status->value === 'confirmed')
+                <button type="button" id="withdraw-open" class="rounded-full bg-red-600 px-6 py-3 text-sm font-extrabold uppercase tracking-widest">Withdraw Applicant</button>
+                <dialog id="withdraw-dialog" class="w-[min(32rem,calc(100%-2rem))] rounded-3xl border border-white/15 bg-[#161616] p-6 text-white shadow-2xl backdrop:bg-black/70">
+                    <form method="POST" action="{{ route('admin.applicants.withdraw', $registration) }}">
+                        @csrf
+                        <p class="font-display text-xl uppercase italic text-ktg-lime">Withdraw Applicant?</p>
+                        <p class="mt-4 text-sm leading-relaxed text-white/75">Are you sure you want to mark this applicant as withdrawn?</p>
+                        <p class="mt-2 text-sm leading-relaxed text-white/75">Their confirmed tournament slot will become available to the next applicant on the waiting list.</p>
+                        <div class="mt-6 flex flex-wrap justify-end gap-3">
+                            <button type="button" id="withdraw-cancel" class="btn-ghost">Cancel</button>
+                            <button type="submit" class="rounded-full bg-red-600 px-6 py-3 text-sm font-extrabold uppercase tracking-widest">Confirm Withdrawal</button>
+                        </div>
+                    </form>
+                </dialog>
+            @endif
+            @if ($registration->slot_status->value === 'waiting')
+                <form method="POST" action="{{ route('admin.applicants.promote', $registration) }}" onsubmit="return confirm('Promote this applicant to a confirmed slot?');">
+                    @csrf
+                    <button type="submit" class="btn-primary">Promote to Confirmed</button>
+                </form>
+            @endif
         </div>
     </section>
 
@@ -147,17 +262,39 @@
         @if ($registration->rejection_reason)
             <p class="mt-3 text-sm text-red-300">Rejection reason: {{ $registration->rejection_reason }}</p>
         @endif
-        <div class="mt-6 flex flex-col gap-4 lg:flex-row">
-            <form method="POST" action="{{ route('admin.applicants.approve', $registration) }}" onsubmit="return confirm('Are you sure you want to approve this registration?');">
-                @csrf
-                <button type="submit" class="btn-primary">Approve Registration</button>
-            </form>
-            <form method="POST" action="{{ route('admin.applicants.reject', $registration) }}" class="flex-1 space-y-2">
-                @csrf
-                <label class="field-label">Reason for rejection</label>
-                <textarea name="reason" rows="3" required minlength="5" class="field-input" placeholder="Required for rejection">{{ old('reason') }}</textarea>
-                <button type="submit" class="rounded-full bg-red-600 px-6 py-3 text-sm font-extrabold uppercase tracking-widest" onclick="return confirm('Are you sure you want to reject this registration?');">Reject Registration</button>
-            </form>
+        @if ($pendingTransfer)
+            <p class="mt-3 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">A category transfer request is currently awaiting the applicant's response. The application remains pending until the applicant agrees or declines.</p>
+        @endif
+        <div class="mt-6 flex flex-wrap gap-3">
+            @if ($registration->registration_status->value === 'pending' && $registration->slot_status->value === 'pending_verification' && $pendingTransfer === null)
+                <form method="POST" action="{{ route('admin.applicants.approve', $registration) }}" onsubmit="return confirm('Verify this applicant and assign a slot based on current category availability?');">
+                    @csrf
+                    <button type="submit" class="btn-primary">Approve Registration</button>
+                </form>
+            @endif
+            @if ($canTransfer)
+                <button type="button" id="transfer-open" class="btn-ghost">Transfer Category</button>
+                <dialog id="transfer-dialog" class="w-[min(36rem,calc(100%-2rem))] rounded-3xl border border-white/15 bg-[#161616] p-6 text-white shadow-2xl backdrop:bg-black/70">
+                    <form method="POST" action="{{ route('admin.applicants.category-transfer', $registration) }}">
+                        @csrf
+                        <p class="font-display text-xl uppercase italic text-ktg-lime">Transfer Category</p>
+                        <p class="mt-4 text-sm text-white/70">Applicant: <span class="text-white">{{ $registration->fullName() }}</span></p>
+                        <p class="mt-2 text-sm text-white/70">Current Category: <span class="uppercase text-white">{{ $registration->entry_level->label() }}</span></p>
+                        <label class="field-label mt-5 block">Transfer applicant to</label>
+                        <select name="requested_category" required class="field-input">
+                            <option value="">Select a higher category</option>
+                            @foreach ($higherLevels as $level)
+                                <option value="{{ $level->value }}" @selected(old('requested_category') === $level->value)>{{ $level->label() }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-4 text-xs text-white/50">If the applicant declines, their registration will be rejected automatically.</p>
+                        <div class="mt-6 flex flex-wrap justify-end gap-3">
+                            <button type="button" id="transfer-cancel" class="btn-ghost">Cancel</button>
+                            <button type="submit" class="btn-primary">Send Transfer Request</button>
+                        </div>
+                    </form>
+                </dialog>
+            @endif
         </div>
     </section>
 
@@ -170,8 +307,11 @@
                         {{ $log->created_at->format('M j, Y g:i A') }} —
                         Admin {{ $log->admin?->name ?? 'Unknown' }}
                         {{ str_replace('_', ' ', $log->action) }}
+                        @if ($log->old_status || $log->new_status)
+                            ({{ strtoupper((string) $log->old_status) }} → {{ strtoupper((string) $log->new_status) }})
+                        @endif
                         @if ($log->remarks)
-                            ({{ $log->remarks }})
+                            — {{ $log->remarks }}
                         @endif
                     </li>
                 @endforeach

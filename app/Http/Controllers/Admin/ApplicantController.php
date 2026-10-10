@@ -10,8 +10,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectPaymentRequest;
 use App\Http\Requests\Admin\RejectRegistrationRequest;
 use App\Models\Registration;
+use App\Enums\SlotStatus;
 use App\Services\AdminRegistrationService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -21,7 +23,7 @@ class ApplicantController extends Controller
 
     public function index(Request $request): View
     {
-        $query = Registration::query();
+        $query = Registration::query()->with('latestTransferRequest');
 
         $search = trim((string) $request->query('q', ''));
 
@@ -52,6 +54,12 @@ class ApplicantController extends Controller
             $query->where('registration_status', $request->string('registration_status'));
         }
 
+        $slotStatus = (string) $request->query('slot_status', $request->query('status', ''));
+
+        if ($slotStatus !== '') {
+            $query->where('slot_status', $slotStatus);
+        }
+
         $sort = (string) $request->query('sort', 'newest');
 
         match ($sort) {
@@ -72,6 +80,7 @@ class ApplicantController extends Controller
                 'experience' => $request->query('experience', ''),
                 'payment_status' => $request->query('payment_status', ''),
                 'registration_status' => $request->query('registration_status', ''),
+                'slot_status' => $slotStatus,
                 'sort' => $sort,
             ],
             'levels' => EntryLevel::cases(),
@@ -81,21 +90,36 @@ class ApplicantController extends Controller
                 RegistrationStatus::cases(),
                 fn (RegistrationStatus $status) => $status !== RegistrationStatus::Verified
             )),
+            'slotStatuses' => SlotStatus::cases(),
         ]);
     }
 
     public function show(Registration $registration): View
     {
-        $registration->load(['reviewer', 'paymentReviewer', 'activityLogs.admin']);
+        $registration->load([
+            'reviewer',
+            'paymentReviewer',
+            'activityLogs.admin',
+            'pendingTransferRequest.requestedBy',
+            'latestTransferRequest.requestedBy',
+        ]);
 
         return view('admin.applicants.show', compact('registration'));
     }
 
     public function approve(Request $request, Registration $registration): RedirectResponse
     {
-        $this->adminRegistrations->approve($registration, $request->user());
+        try {
+            $approved = $this->adminRegistrations->approve($registration, $request->user());
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
 
-        return back()->with('success', 'Registration '.$registration->registration_number.' has been approved.');
+        $message = $approved->slot_status === SlotStatus::Waiting
+            ? 'Registration '.$approved->registration_number.' has been verified and placed on the waiting list.'
+            : 'Registration '.$approved->registration_number.' has been verified and assigned a confirmed slot.';
+
+        return back()->with('success', $message);
     }
 
     public function reject(RejectRegistrationRequest $request, Registration $registration): RedirectResponse
@@ -107,19 +131,49 @@ class ApplicantController extends Controller
 
     public function verifyPayment(Request $request, Registration $registration): RedirectResponse
     {
-        $this->adminRegistrations->verifyPayment($registration, $request->user());
+        try {
+            $this->adminRegistrations->verifyPayment($registration, $request->user());
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
 
         return back()->with('success', 'Payment for '.$registration->registration_number.' has been verified.');
     }
 
     public function rejectPayment(RejectPaymentRequest $request, Registration $registration): RedirectResponse
     {
-        $this->adminRegistrations->rejectPayment(
-            $registration,
-            $request->user(),
-            $request->validated('reason')
-        );
+        try {
+            $this->adminRegistrations->rejectPayment(
+                $registration,
+                $request->user(),
+                $request->validated('reason')
+            );
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
 
         return back()->with('success', 'Payment for '.$registration->registration_number.' has been rejected.');
+    }
+
+    public function withdraw(Request $request, Registration $registration): RedirectResponse
+    {
+        try {
+            $this->adminRegistrations->withdraw($registration, $request->user());
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        return back()->with('success', $registration->registration_number.' has been marked as withdrawn.');
+    }
+
+    public function promote(Request $request, Registration $registration): RedirectResponse
+    {
+        try {
+            $this->adminRegistrations->promote($registration, $request->user());
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        return back()->with('success', $registration->registration_number.' has been promoted to a confirmed slot.');
     }
 }

@@ -5,7 +5,7 @@
 @section('content')
     <section class="mx-auto max-w-2xl text-center">
         <div class="rounded-3xl border border-ktg-lime/30 bg-white/5 px-6 py-10 shadow-2xl sm:px-10">
-            <p class="text-xs font-bold uppercase tracking-[0.25em] text-ktg-lime">You are registered</p>
+            <p class="text-xs font-bold uppercase tracking-[0.25em] text-ktg-lime">Application Received</p>
             <h1 class="mt-4 font-display text-3xl uppercase italic tracking-tight sm:text-5xl">Thank You for Your Interest in KONSONTHEGO!</h1>
             <p class="mt-6 text-base leading-relaxed text-white/75 sm:text-lg">
                 Thank you for your interest in the KONSONTHEGO Tournament. Your registration has been successfully submitted.
@@ -24,7 +24,17 @@
                 <p class="text-xs uppercase tracking-widest text-white/50">Registration No.</p>
                 <p class="mt-1 font-display text-2xl text-ktg-lime sm:text-3xl">{{ $completed['number'] }}</p>
                 <p class="mt-2 text-sm text-white/55">{{ $completed['name'] }}</p>
+                @if (! empty($completed['entry_level']))
+                    <p class="mt-3 text-sm uppercase tracking-widest text-white/70">Category: {{ $completed['entry_level'] }}</p>
+                @endif
+                <p class="mt-2 font-bold uppercase tracking-widest text-amber-300">Slot Status: Pending Verification</p>
+                <p class="mt-3 text-sm text-white/60">Your slot will be confirmed only after an administrator verifies your registration and GCash payment details.</p>
             </div>
+
+            <form method="POST" action="{{ route('register.start-again') }}" class="mt-8">
+                @csrf
+                <button type="submit" class="btn-primary">Done</button>
+            </form>
         </div>
     </section>
 @endsection

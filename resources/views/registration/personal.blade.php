@@ -7,6 +7,18 @@
         <h1 class="text-center font-display text-3xl uppercase italic tracking-tight sm:text-5xl">Personal Data</h1>
         <p class="mt-3 text-center text-white/60">Tell us who you are. Required fields are marked with *</p>
 
+        @if (session('capacity_notice') === 'waiting')
+            <div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-4 text-sm leading-relaxed text-amber-100">
+                <p class="font-extrabold uppercase tracking-widest">Pending Verification</p>
+                <p class="mt-2">Regular slots for this category are currently full. After you submit, an administrator must verify your application. You may then be placed on the waiting list if a position is available.</p>
+            </div>
+        @elseif (session('capacity_notice') === 'full')
+            <div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-4 text-sm leading-relaxed text-amber-100">
+                <p class="font-extrabold uppercase tracking-widest">Pending Verification</p>
+                <p class="mt-2">This category currently has no remaining regular or waiting-list slots. You may still apply. A slot will be assigned only after admin verification if availability opens.</p>
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('register.personal.store') }}" enctype="multipart/form-data" class="mt-8 space-y-5 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-8">
             @csrf
 
@@ -37,13 +49,11 @@
             </div>
 
             <div>
-                <label for="facebook" class="field-label">Facebook Link / Account</label>
-                <input id="facebook" name="facebook" type="text" maxlength="255" value="{{ old('facebook', $wizard['facebook'] ?? '') }}" class="field-input" placeholder="facebook.com/username or account name">
-            </div>
-
-            <div>
                 <label for="email" class="field-label">Email Address *</label>
                 <input id="email" name="email" type="email" required maxlength="255" value="{{ old('email', $wizard['email'] ?? '') }}" class="field-input">
+                @error('email')
+                    <p class="mt-2 text-sm text-red-200">{{ $message }}</p>
+                @enderror
             </div>
 
             <aside class="rounded-2xl border border-ktg-lime/40 bg-ktg-lime/10 px-4 py-4 text-sm leading-relaxed text-ktg-lime">
