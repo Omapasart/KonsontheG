@@ -87,30 +87,18 @@ function initFilePreviews() {
     });
 }
 
-function formHasPaymentProof(form) {
-    if (form.dataset.hasProof === '1') {
-        return true;
-    }
-
-    const proof = form.querySelector('#payment_proof');
-
-    return Boolean(proof?.files?.length);
-}
-
 function initPrivacyConsent() {
     document.querySelectorAll('[data-submit-form]').forEach((form) => {
         const checkbox = form.querySelector('[data-privacy-checkbox]');
         const button = form.querySelector('[data-submit-button]');
         const error = form.querySelector('[data-privacy-error]');
-        const proof = form.querySelector('#payment_proof');
 
         if (! checkbox || ! button) {
             return;
         }
 
         const sync = () => {
-            const ready = checkbox.checked && formHasPaymentProof(form);
-            button.disabled = ! ready;
+            button.disabled = ! checkbox.checked;
 
             if (checkbox.checked && error) {
                 error.classList.add('hidden');
@@ -118,7 +106,8 @@ function initPrivacyConsent() {
         };
 
         checkbox.addEventListener('change', sync);
-        proof?.addEventListener('change', sync);
+        checkbox.addEventListener('click', sync);
+        checkbox.addEventListener('input', sync);
         sync();
 
         form.addEventListener('submit', (event) => {

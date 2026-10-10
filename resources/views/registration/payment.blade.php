@@ -154,7 +154,7 @@
 
             <div class="flex items-center justify-between gap-3 pt-2">
                 <a href="{{ route('register.personal') }}" class="btn-ghost">Back</a>
-                <button type="submit" class="btn-primary" data-submit-button disabled>
+                <button type="submit" class="btn-primary" data-submit-button>
                     Submit Registration
                 </button>
             </div>
