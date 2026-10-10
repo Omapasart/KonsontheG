@@ -62,6 +62,19 @@
                     <dd>{{ $registration->withdrawn_at->format('F j, Y — g:i A') }}</dd>
                 </div>
             @endif
+            <div>
+                <dt class="text-white/45">Data Privacy and Participant Consent</dt>
+                <dd>
+                    @if ($registration->privacy_consent)
+                        Accepted{{ $registration->privacy_consent_at ? ' on '.$registration->privacy_consent_at->format('F j, Y g:i A') : '' }}
+                        @if ($registration->privacy_notice_version)
+                            <span class="block text-xs text-white/45">Notice version {{ $registration->privacy_notice_version }}</span>
+                        @endif
+                    @else
+                        Not recorded
+                    @endif
+                </dd>
+            </div>
         </dl>
     </section>
 

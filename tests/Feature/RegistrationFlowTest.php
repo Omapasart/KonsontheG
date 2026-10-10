@@ -96,6 +96,8 @@ class RegistrationFlowTest extends TestCase
             ->assertSee('Proof of Payment')
             ->assertDontSee('Facebook')
             ->assertSee('Download QR')
+            ->assertSee('Data Privacy and Participant Consent')
+            ->assertSee('I have read, understood, and agree to the Data Privacy and Participant Consent terms stated above.')
             ->assertSee(route('register.payment.qr', [], false), false);
 
         $qrPath = public_path(config('tournament.qr_image'));
@@ -110,6 +112,7 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('register.submit'), [
             'submission_token' => $token,
             'payment_proof' => $this->fakePng('receipt.png'),
+            'privacy_consent' => '1',
         ])->assertRedirect(route('register.confirmation'));
 
         $this->get(route('register.confirmation'))
@@ -132,6 +135,9 @@ class RegistrationFlowTest extends TestCase
         $this->assertSame('pending', $registration->payment_status->value);
         $this->assertSame('pending', $registration->registration_status->value);
         $this->assertSame('pending_verification', $registration->slot_status->value);
+        $this->assertTrue($registration->privacy_consent);
+        $this->assertNotNull($registration->privacy_consent_at);
+        $this->assertSame(config('tournament.privacy_notice_version'), $registration->privacy_notice_version);
         $this->assertTrue(Storage::disk('local')->exists($registration->photo_path));
         $this->assertTrue(Storage::disk('local')->exists($registration->payment_proof_path));
         $this->assertStringStartsWith('registrations/photos/', $registration->photo_path);
@@ -180,11 +186,13 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('register.submit'), [
             'submission_token' => $token,
             'payment_proof' => UploadedFile::fake()->create('receipt.pdf', 120, 'application/pdf'),
+            'privacy_consent' => '1',
         ])->assertRedirect(route('register.confirmation'));
 
         $this->post(route('register.submit'), [
             'submission_token' => $token,
             'payment_proof' => UploadedFile::fake()->create('receipt-2.pdf', 120, 'application/pdf'),
+            'privacy_consent' => '1',
         ])->assertRedirect();
 
         $this->assertDatabaseCount('registrations', 1);
@@ -230,6 +238,7 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('register.submit'), [
             'submission_token' => session('registration_wizard.submission_token'),
             'payment_proof' => $this->fakePng('receipt.png'),
+            'privacy_consent' => '1',
         ])->assertRedirect(route('register.confirmation'));
 
         $this->post(route('register.start-again'))->assertRedirect(route('register.welcome'));
@@ -279,6 +288,7 @@ class RegistrationFlowTest extends TestCase
             ->post(route('register.submit'), [
                 'submission_token' => session('registration_wizard.submission_token'),
                 'payment_proof' => $this->fakePng('receipt.png'),
+                'privacy_consent' => '1',
             ])
             ->assertRedirect(route('register.email-taken'));
 

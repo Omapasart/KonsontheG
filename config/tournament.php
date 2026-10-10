@@ -25,6 +25,8 @@ return [
 
     'confirmation_hours' => 28,
 
+    'privacy_notice_version' => env('TOURNAMENT_PRIVACY_NOTICE_VERSION', 'konson_thego_consent_v1'),
+
     'categories' => [
         'beginner' => [
             'capacity' => (int) env('TOURNAMENT_BEGINNER_CAPACITY', 36),

@@ -35,6 +35,7 @@ class SubmitRegistrationRequest extends FormRequest
                 'max:'.$proofMax,
             ],
             'submission_token' => ['required', 'string', 'size:64'],
+            'privacy_consent' => ['accepted'],
         ];
     }
 
@@ -83,6 +84,7 @@ class SubmitRegistrationRequest extends FormRequest
             'payment_proof.required' => 'Please upload your proof of payment.',
             'payment_proof.mimes' => 'Proof of payment must be a JPG, JPEG, PNG, or PDF file.',
             'payment_proof.max' => 'Proof of payment may not be larger than :max kilobytes.',
+            'privacy_consent.accepted' => 'Please read, understand, and agree to the Data Privacy and Participant Consent terms stated above.',
         ];
     }
 }

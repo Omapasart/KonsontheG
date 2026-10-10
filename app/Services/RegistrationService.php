@@ -104,6 +104,9 @@ class RegistrationService
                     'waiting_list_position' => null,
                     'confirmed_at' => null,
                     'submission_token' => $submissionToken,
+                    'privacy_consent' => true,
+                    'privacy_consent_at' => now(),
+                    'privacy_notice_version' => (string) config('tournament.privacy_notice_version'),
                 ]);
             });
         } catch (UniqueConstraintViolationException $exception) {

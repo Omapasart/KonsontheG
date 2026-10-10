@@ -38,6 +38,9 @@ class Registration extends Model
         'confirmed_at',
         'withdrawn_at',
         'submission_token',
+        'privacy_consent',
+        'privacy_consent_at',
+        'privacy_notice_version',
         'rejection_reason',
         'payment_rejection_reason',
         'reviewed_by',
@@ -62,6 +65,8 @@ class Registration extends Model
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
             'payment_reviewed_at' => 'datetime',
+            'privacy_consent' => 'boolean',
+            'privacy_consent_at' => 'datetime',
         ];
     }
 

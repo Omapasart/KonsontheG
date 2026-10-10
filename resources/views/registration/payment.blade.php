@@ -92,7 +92,7 @@
             <p class="mt-4 text-xs text-white/45">Use Back to edit any of the information above. GCash details are shown only on this step.</p>
         </div>
 
-        <form method="POST" action="{{ route('register.submit') }}" enctype="multipart/form-data" class="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-8" data-submit-form>
+        <form method="POST" action="{{ route('register.submit') }}" enctype="multipart/form-data" class="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-8" data-submit-form @if (! empty($wizard['payment_proof_path'])) data-has-proof="1" @endif>
             @csrf
             <input type="hidden" name="submission_token" value="{{ $wizard['submission_token'] }}">
 
@@ -125,9 +125,36 @@
                 >
             </div>
 
+            <div class="rounded-2xl border border-ktg-lime/30 bg-black/30 p-4 sm:p-5" data-privacy-consent>
+                <h2 class="font-display text-xl uppercase italic text-ktg-lime">Data Privacy and Participant Consent</h2>
+                <div class="mt-4">
+                    @include('registration.partials.privacy-notice')
+                </div>
+
+                <label for="privacy_consent" class="mt-5 flex cursor-pointer items-start gap-3 text-sm font-semibold leading-relaxed text-white">
+                    <input
+                        id="privacy_consent"
+                        name="privacy_consent"
+                        type="checkbox"
+                        value="1"
+                        class="mt-1 h-4 w-4 shrink-0 accent-ktg-lime"
+                        data-privacy-checkbox
+                        required
+                        @checked(old('privacy_consent'))
+                    >
+                    <span>I have read, understood, and agree to the Data Privacy and Participant Consent terms stated above.</span>
+                </label>
+                <p id="privacy-consent-error" class="mt-3 hidden text-sm text-red-200" data-privacy-error role="alert">
+                    Please read, understand, and agree to the Data Privacy and Participant Consent terms stated above.
+                </p>
+                @error('privacy_consent')
+                    <p class="mt-3 text-sm text-red-200">{{ $message }}</p>
+                @enderror
+            </div>
+
             <div class="flex items-center justify-between gap-3 pt-2">
                 <a href="{{ route('register.personal') }}" class="btn-ghost">Back</a>
-                <button type="submit" class="btn-primary" data-submit-button>
+                <button type="submit" class="btn-primary" data-submit-button disabled>
                     Submit Registration
                 </button>
             </div>

@@ -357,6 +357,7 @@ class CategoryCapacityTest extends TestCase
             ->post(route('register.submit'), [
                 'submission_token' => session('registration_wizard.submission_token'),
                 'payment_proof' => $this->fakePng('receipt.png'),
+                'privacy_consent' => '1',
             ])
             ->assertRedirect(route('register.category-full', ['level' => 'beginner']));
 
@@ -526,6 +527,7 @@ class CategoryCapacityTest extends TestCase
         $this->post(route('register.submit'), [
             'submission_token' => session('registration_wizard.submission_token'),
             'payment_proof' => $this->fakePng('receipt.png'),
+            'privacy_consent' => '1',
         ])->assertRedirect(route('register.confirmation'));
     }
 

@@ -87,9 +87,62 @@ function initFilePreviews() {
     });
 }
 
+function formHasPaymentProof(form) {
+    if (form.dataset.hasProof === '1') {
+        return true;
+    }
+
+    const proof = form.querySelector('#payment_proof');
+
+    return Boolean(proof?.files?.length);
+}
+
+function initPrivacyConsent() {
+    document.querySelectorAll('[data-submit-form]').forEach((form) => {
+        const checkbox = form.querySelector('[data-privacy-checkbox]');
+        const button = form.querySelector('[data-submit-button]');
+        const error = form.querySelector('[data-privacy-error]');
+        const proof = form.querySelector('#payment_proof');
+
+        if (! checkbox || ! button) {
+            return;
+        }
+
+        const sync = () => {
+            const ready = checkbox.checked && formHasPaymentProof(form);
+            button.disabled = ! ready;
+
+            if (checkbox.checked && error) {
+                error.classList.add('hidden');
+            }
+        };
+
+        checkbox.addEventListener('change', sync);
+        proof?.addEventListener('change', sync);
+        sync();
+
+        form.addEventListener('submit', (event) => {
+            if (checkbox.checked) {
+                return;
+            }
+
+            event.preventDefault();
+            error?.classList.remove('hidden');
+            checkbox.focus();
+        });
+    });
+}
+
 function initSubmitGuard() {
     document.querySelectorAll('[data-submit-form]').forEach((form) => {
         form.addEventListener('submit', (event) => {
+            const checkbox = form.querySelector('[data-privacy-checkbox]');
+
+            if (checkbox && ! checkbox.checked) {
+                event.preventDefault();
+                return;
+            }
+
             if (form.dataset.submitting === 'true') {
                 event.preventDefault();
                 return;
@@ -128,6 +181,7 @@ function initWaitingNotice() {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-carousel]').forEach(initCarousel);
     initFilePreviews();
+    initPrivacyConsent();
     initSubmitGuard();
     initWaitingNotice();
 });

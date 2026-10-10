@@ -30,6 +30,9 @@ class RegistrationFactory extends Factory
             'waiting_list_position' => null,
             'confirmed_at' => null,
             'submission_token' => Str::random(64),
+            'privacy_consent' => false,
+            'privacy_consent_at' => null,
+            'privacy_notice_version' => null,
         ];
     }
 
