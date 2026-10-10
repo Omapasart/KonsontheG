@@ -132,18 +132,24 @@ class ApplicantController extends Controller
     public function verifyPayment(Request $request, Registration $registration): RedirectResponse
     {
         try {
-            $this->adminRegistrations->verifyPayment($registration, $request->user());
+            $emailed = $this->adminRegistrations->verifyPayment($registration, $request->user());
         } catch (ValidationException $exception) {
             return back()->withErrors($exception->errors());
         }
 
-        return back()->with('success', 'Payment for '.$registration->registration_number.' has been verified.');
+        $message = 'Payment for '.$registration->registration_number.' has been verified.';
+
+        if (! $emailed) {
+            return back()->with('success', $message)->with('warning', 'The applicant email could not be sent. Check storage/logs/laravel.log.');
+        }
+
+        return back()->with('success', $message.' A notice was emailed to the applicant.');
     }
 
     public function rejectPayment(RejectPaymentRequest $request, Registration $registration): RedirectResponse
     {
         try {
-            $this->adminRegistrations->rejectPayment(
+            $emailed = $this->adminRegistrations->rejectPayment(
                 $registration,
                 $request->user(),
                 $request->validated('reason')
@@ -152,7 +158,13 @@ class ApplicantController extends Controller
             return back()->withErrors($exception->errors());
         }
 
-        return back()->with('success', 'Payment for '.$registration->registration_number.' has been rejected.');
+        $message = 'Payment for '.$registration->registration_number.' has been rejected.';
+
+        if (! $emailed) {
+            return back()->with('success', $message)->with('warning', 'The applicant email could not be sent. Check storage/logs/laravel.log.');
+        }
+
+        return back()->with('success', $message.' A notice was emailed to the applicant.');
     }
 
     public function withdraw(Request $request, Registration $registration): RedirectResponse

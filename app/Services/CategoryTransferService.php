@@ -15,9 +15,9 @@ use App\Models\AdminActivityLog;
 use App\Models\CategoryTransferRequest;
 use App\Models\Registration;
 use App\Models\User;
+use App\Support\AppMail;
+use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -281,16 +281,8 @@ class CategoryTransferService
         ]);
     }
 
-    private function mail(string $email, object $mailable): void
+    private function mail(string $email, Mailable $mailable): void
     {
-        try {
-            Mail::to($email)->send($mailable);
-        } catch (\Throwable $exception) {
-            Log::error('Failed to send category transfer email.', [
-                'email' => $email,
-                'mailable' => $mailable::class,
-                'message' => $exception->getMessage(),
-            ]);
-        }
+        AppMail::send($email, $mailable);
     }
 }

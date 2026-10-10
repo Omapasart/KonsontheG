@@ -17,7 +17,7 @@ class PaymentRejected extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'KONSONTHEGO Payment Update',
+            subject: 'KONSONTHEGO Payment Could Not Be Verified',
         );
     }
 

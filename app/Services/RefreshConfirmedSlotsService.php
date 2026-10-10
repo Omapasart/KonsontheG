@@ -10,9 +10,8 @@ use App\Mail\WaitingListTransferred;
 use App\Models\AdminActivityLog;
 use App\Models\Registration;
 use App\Models\User;
+use App\Support\AppMail;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class RefreshConfirmedSlotsService
@@ -187,15 +186,7 @@ class RefreshConfirmedSlotsService
                 continue;
             }
 
-            try {
-                Mail::to($applicant->email)->send(new WaitingListTransferred($applicant));
-            } catch (\Throwable $exception) {
-                Log::error('Failed to send waiting-list transfer email.', [
-                    'registration_id' => $applicant->id,
-                    'email' => $applicant->email,
-                    'message' => $exception->getMessage(),
-                ]);
-            }
+            AppMail::send($applicant->email, new WaitingListTransferred($applicant));
         }
     }
 }

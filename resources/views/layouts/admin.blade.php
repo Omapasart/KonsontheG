@@ -52,6 +52,9 @@
                     @if (session('success'))
                         <div class="mb-4 rounded-2xl border border-ktg-green/40 bg-ktg-green/10 px-4 py-3 text-sm text-green-200">{{ session('success') }}</div>
                     @endif
+                    @if (session('warning'))
+                        <div class="mb-4 rounded-2xl border border-ktg-lime/40 bg-ktg-lime/10 px-4 py-3 text-sm text-ktg-lime">{{ session('warning') }}</div>
+                    @endif
                     @if ($errors->any())
                         <div class="mb-4 rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                             <ul class="list-disc space-y-1 pl-5">

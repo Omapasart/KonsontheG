@@ -7,11 +7,10 @@ use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
 use App\Mail\RegistrationReceived;
 use App\Models\Registration;
+use App\Support\AppMail;
 use App\Support\RegistrationWizard;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -123,15 +122,7 @@ class RegistrationService
 
     private function notifyParticipant(Registration $registration): void
     {
-        try {
-            Mail::to($registration->email)->send(new RegistrationReceived($registration));
-        } catch (\Throwable $exception) {
-            Log::error('Failed to send registration email.', [
-                'registration_id' => $registration->id,
-                'email' => $registration->email,
-                'message' => $exception->getMessage(),
-            ]);
-        }
+        AppMail::send($registration->email, new RegistrationReceived($registration));
     }
 
     private function promoteTempFile(string $tempPath, string $folder): string

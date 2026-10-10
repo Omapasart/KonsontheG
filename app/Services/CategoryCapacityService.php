@@ -7,6 +7,7 @@ use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
 use App\Mail\SlotConfirmed;
 use App\Models\Registration;
+use App\Support\AppMail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -421,14 +422,7 @@ class CategoryCapacityService
 
     public function notifyPromoted(Registration $registration): void
     {
-        try {
-            \Illuminate\Support\Facades\Mail::to($registration->email)->send(new SlotConfirmed($registration));
-        } catch (\Throwable $exception) {
-            \Illuminate\Support\Facades\Log::error('Failed to send slot confirmation email.', [
-                'registration_id' => $registration->id,
-                'message' => $exception->getMessage(),
-            ]);
-        }
+        AppMail::send($registration->email, new SlotConfirmed($registration));
     }
 
     public function lockCategory(EntryLevel|string $level): void

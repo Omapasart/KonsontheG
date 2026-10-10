@@ -443,7 +443,8 @@ class AdminApplicantTest extends TestCase
             ->post(route('admin.applicants.reject-payment', $registration), [
                 'reason' => 'Screenshot is cropped.',
             ])
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertSessionHas('success');
 
         $this->assertSame(PaymentStatus::Rejected, $registration->fresh()->payment_status);
         Mail::assertSent(PaymentRejected::class);

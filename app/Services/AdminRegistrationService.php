@@ -14,9 +14,8 @@ use App\Mail\WaitingListPlaced;
 use App\Models\AdminActivityLog;
 use App\Models\Registration;
 use App\Models\User;
+use App\Support\AppMail;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class AdminRegistrationService
@@ -113,7 +112,7 @@ class AdminRegistrationService
         }
     }
 
-    public function verifyPayment(Registration $registration, User $admin): void
+    public function verifyPayment(Registration $registration, User $admin): bool
     {
         $verified = DB::transaction(function () use ($registration, $admin) {
             $locked = Registration::query()->whereKey($registration->id)->lockForUpdate()->firstOrFail();
@@ -133,10 +132,10 @@ class AdminRegistrationService
             return $locked->fresh();
         });
 
-        $this->mail($verified->email, new PaymentVerified($verified));
+        return $this->mail($verified->email, new PaymentVerified($verified));
     }
 
-    public function rejectPayment(Registration $registration, User $admin, ?string $reason): void
+    public function rejectPayment(Registration $registration, User $admin, ?string $reason): bool
     {
         $rejected = DB::transaction(function () use ($registration, $admin, $reason) {
             $locked = Registration::query()->whereKey($registration->id)->lockForUpdate()->firstOrFail();
@@ -156,7 +155,7 @@ class AdminRegistrationService
             return $locked->fresh();
         });
 
-        $this->mail($rejected->email, new PaymentRejected($rejected));
+        return $this->mail($rejected->email, new PaymentRejected($rejected));
     }
 
     private function assertPaymentNotVerified(Registration $registration): void
@@ -234,16 +233,8 @@ class AdminRegistrationService
         ]);
     }
 
-    private function mail(string $email, object $mailable): void
+    private function mail(string $email, object $mailable): bool
     {
-        try {
-            Mail::to($email)->send($mailable);
-        } catch (\Throwable $exception) {
-            Log::error('Failed to send admin status email.', [
-                'email' => $email,
-                'mailable' => $mailable::class,
-                'message' => $exception->getMessage(),
-            ]);
-        }
+        return AppMail::send($email, $mailable);
     }
 }
