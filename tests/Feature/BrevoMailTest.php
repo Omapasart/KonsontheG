@@ -39,6 +39,7 @@ class BrevoMailTest extends TestCase
             'email' => 'applicant@example.com',
         ]);
 
+        $this->assertSame('brevo', AppMail::mailer());
         $this->assertTrue(AppMail::send($registration->email, new RegistrationReceived($registration)));
 
         Http::assertSent(function ($request) use ($registration) {
@@ -49,6 +50,22 @@ class BrevoMailTest extends TestCase
                 && $request['subject'] === 'Application Received'
                 && filled($request['htmlContent']);
         });
+    }
+
+    public function test_app_mail_uses_brevo_even_when_smtp_is_configured(): void
+    {
+        config(['mail.default' => 'smtp']);
+        Mail::purge('brevo');
+
+        Http::fake([
+            'https://api.brevo.com/v3/smtp/email' => Http::response(['messageId' => 'forced-brevo'], 201),
+        ]);
+
+        $registration = Registration::factory()->create();
+
+        $this->assertSame('brevo', AppMail::mailer());
+        $this->assertTrue(AppMail::send($registration->email, new RegistrationReceived($registration)));
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.brevo.com/v3/smtp/email');
     }
 
     public function test_brevo_api_errors_are_reported_without_sending(): void

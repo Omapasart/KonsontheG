@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\AppMail;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -22,7 +23,7 @@ class SendTestMail extends Command
             return self::FAILURE;
         }
 
-        $mailer = (string) config('mail.default');
+        $mailer = AppMail::mailer();
 
         $this->info('Mailer: '.$mailer);
         if ($mailer === 'brevo') {
@@ -36,7 +37,7 @@ class SendTestMail extends Command
         $this->info('To: '.$email);
 
         try {
-            Mail::raw(
+            Mail::mailer($mailer)->raw(
                 'KONSONTHEGO mail delivery test. If you received this, Brevo API mail is working.',
                 function ($message) use ($email): void {
                     $message->to($email)->subject('KONSONTHEGO mail test');

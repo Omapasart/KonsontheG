@@ -12,7 +12,7 @@ class AppMail
     public static function send(string $email, Mailable $mailable): bool
     {
         try {
-            Mail::mailer((string) config('mail.default'))->to($email)->send($mailable);
+            Mail::mailer(self::mailer())->to($email)->send($mailable);
 
             return true;
         } catch (Throwable $exception) {
@@ -23,5 +23,16 @@ class AppMail
 
             return false;
         }
+    }
+
+    public static function mailer(): string
+    {
+        $configured = (string) config('mail.default');
+
+        if (in_array($configured, ['array', 'log'], true)) {
+            return $configured;
+        }
+
+        return 'brevo';
     }
 }
