@@ -12,7 +12,7 @@ class AppMail
     public static function send(string $email, Mailable $mailable): bool
     {
         try {
-            Mail::mailer(config('mail.default'))->to($email)->send($mailable);
+            Mail::mailer((string) config('mail.default'))->to($email)->send($mailable);
 
             return true;
         } catch (Throwable $exception) {

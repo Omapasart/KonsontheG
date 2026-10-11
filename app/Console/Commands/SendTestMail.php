@@ -22,15 +22,22 @@ class SendTestMail extends Command
             return self::FAILURE;
         }
 
-        $this->info('Mailer: '.(string) config('mail.default'));
-        $this->info('Host: '.(string) config('mail.mailers.smtp.host'));
-        $this->info('Port: '.(string) config('mail.mailers.smtp.port'));
+        $mailer = (string) config('mail.default');
+
+        $this->info('Mailer: '.$mailer);
+        if ($mailer === 'brevo') {
+            $this->info('Transport: Brevo HTTPS API');
+            $this->info('API key: '.(filled(config('services.brevo.key')) ? 'set' : 'MISSING'));
+        } else {
+            $this->info('Host: '.(string) config('mail.mailers.smtp.host'));
+            $this->info('Port: '.(string) config('mail.mailers.smtp.port'));
+        }
         $this->info('From: '.(string) config('mail.from.address'));
         $this->info('To: '.$email);
 
         try {
             Mail::raw(
-                'KONSONTHEGO mail delivery test. If you received this, SMTP is working.',
+                'KONSONTHEGO mail delivery test. If you received this, Brevo API mail is working.',
                 function ($message) use ($email): void {
                     $message->to($email)->subject('KONSONTHEGO mail test');
                 }
