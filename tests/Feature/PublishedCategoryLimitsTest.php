@@ -28,9 +28,9 @@ class PublishedCategoryLimitsTest extends TestCase
     {
         $capacity = app(CategoryCapacityService::class);
 
-        $this->assertSame(['capacity' => 36, 'waiting_capacity' => 5], $capacity->limits('beginner'));
-        $this->assertSame(['capacity' => 48, 'waiting_capacity' => 5], $capacity->limits('novice'));
-        $this->assertSame(['capacity' => 36, 'waiting_capacity' => 5], $capacity->limits('intermediate'));
+        $this->assertSame(['capacity' => 36, 'waiting_capacity' => 5, 'closed' => false], $capacity->limits('beginner'));
+        $this->assertSame(['capacity' => 48, 'waiting_capacity' => 5, 'closed' => false], $capacity->limits('novice'));
+        $this->assertSame(['capacity' => 36, 'waiting_capacity' => 5, 'closed' => false], $capacity->limits('intermediate'));
     }
 
     public function test_beginner_waiting_list_opens_at_36_and_closes_at_41(): void
@@ -110,6 +110,30 @@ class PublishedCategoryLimitsTest extends TestCase
         $before = Registration::query()->count();
         $this->post(route('register.level.store'), ['entry_level' => $level->value]);
         $this->assertSame($before, Registration::query()->count());
+    }
+
+    public function test_closed_beginner_category_rejects_new_applicants_without_changing_records(): void
+    {
+        config(['tournament.categories.beginner.closed' => true]);
+
+        Registration::factory()->confirmed()->create(['entry_level' => 'beginner']);
+        $existing = Registration::query()->count();
+
+        $status = app(CategoryCapacityService::class)->statusFor('beginner');
+        $this->assertTrue($status['is_full']);
+        $this->assertTrue($status['closed']);
+        $this->assertSame(1, $status['confirmed']);
+        $this->assertFalse(app(CategoryCapacityService::class)->statusFor('novice')['is_full']);
+
+        $this->startWizard();
+        $this->post(route('register.experience.store'), ['has_tournament_experience' => 'no']);
+        $this->from(route('register.level'))
+            ->post(route('register.level.store'), ['entry_level' => 'beginner'])
+            ->assertRedirect(route('register.level'))
+            ->assertSessionHasErrors('entry_level');
+
+        $this->assertSame($existing, Registration::query()->count());
+        $this->assertDatabaseHas('registrations', ['entry_level' => 'beginner']);
     }
 
     private function startWizard(): void

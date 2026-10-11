@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="TOURNAMENT_BEGINNER_CLOSED" value="false"/>
+        <env name="TOURNAMENT_NOVICE_CLOSED" value="false"/>
+        <env name="TOURNAMENT_INTERMEDIATE_CLOSED" value="false"/>
     </php>
 </phpunit>

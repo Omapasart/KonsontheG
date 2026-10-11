@@ -28,6 +28,7 @@ class CategoryCapacityService
         return [
             'capacity' => (int) $config['capacity'],
             'waiting_capacity' => (int) $config['waiting_capacity'],
+            'closed' => (bool) ($config['closed'] ?? false),
         ];
     }
 
@@ -54,23 +55,25 @@ class CategoryCapacityService
         $limits = $this->limits($enum);
         $confirmed = $this->countConfirmed($enum);
         $waiting = $this->countWaiting($enum);
-        $regularRemaining = max(0, $limits['capacity'] - $confirmed);
-        $waitingRemaining = max(0, $limits['waiting_capacity'] - $waiting);
-        $isFull = $regularRemaining === 0 && $waitingRemaining === 0;
-        $isWaiting = $regularRemaining === 0 && $waitingRemaining > 0;
+        $closed = $limits['closed'];
+        $regularRemaining = $closed ? 0 : max(0, $limits['capacity'] - $confirmed);
+        $waitingRemaining = $closed ? 0 : max(0, $limits['waiting_capacity'] - $waiting);
+        $isFull = $closed || ($regularRemaining === 0 && $waitingRemaining === 0);
+        $isWaiting = ! $closed && $regularRemaining === 0 && $waitingRemaining > 0;
         $availability = $isFull ? 'full' : ($isWaiting ? 'waiting' : 'open');
 
         return [
             'level' => $enum,
             'capacity' => $limits['capacity'],
             'waiting_capacity' => $limits['waiting_capacity'],
+            'closed' => $closed,
             'confirmed' => $confirmed,
             'waiting' => $waiting,
             'regular_remaining' => $regularRemaining,
             'waiting_remaining' => $waitingRemaining,
             'is_full' => $isFull,
             'is_waiting' => $isWaiting,
-            'is_open' => $regularRemaining > 0,
+            'is_open' => ! $closed && $regularRemaining > 0,
             'availability' => $availability,
             'availability_label' => match ($availability) {
                 'full' => 'FULL',
@@ -100,6 +103,10 @@ class CategoryCapacityService
     {
         $status = $this->statusFor($level);
         $label = strtoupper($status['level']->label());
+
+        if ($status['closed']) {
+            return $label.' CATEGORY IS FULL. Registration for '.$status['level']->label().' is closed. Existing applicants are not affected.';
+        }
 
         return $label.' CATEGORY IS FULL. The '.$status['capacity'].' tournament slots and '.$status['waiting_capacity'].' waiting-list slots for '.$status['level']->label().' have already been filled.';
     }

@@ -31,14 +31,17 @@ return [
         'beginner' => [
             'capacity' => (int) env('TOURNAMENT_BEGINNER_CAPACITY', 36),
             'waiting_capacity' => (int) env('TOURNAMENT_BEGINNER_WAITING', 5),
+            'closed' => filter_var(env('TOURNAMENT_BEGINNER_CLOSED', false), FILTER_VALIDATE_BOOLEAN),
         ],
         'novice' => [
             'capacity' => (int) env('TOURNAMENT_NOVICE_CAPACITY', 48),
             'waiting_capacity' => (int) env('TOURNAMENT_NOVICE_WAITING', 5),
+            'closed' => filter_var(env('TOURNAMENT_NOVICE_CLOSED', false), FILTER_VALIDATE_BOOLEAN),
         ],
         'intermediate' => [
             'capacity' => (int) env('TOURNAMENT_INTERMEDIATE_CAPACITY', 36),
             'waiting_capacity' => (int) env('TOURNAMENT_INTERMEDIATE_WAITING', 5),
+            'closed' => filter_var(env('TOURNAMENT_INTERMEDIATE_CLOSED', false), FILTER_VALIDATE_BOOLEAN),
         ],
     ],
 ];
