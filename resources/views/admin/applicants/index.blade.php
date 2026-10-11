@@ -71,10 +71,30 @@
         </div>
     </form>
 
+    <form id="bulk-email-form" method="POST" action="{{ route('admin.applicants.emails.selected') }}" class="mb-4 flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        @csrf
+        <div>
+            <label class="field-label" for="bulk-email-type">Send to selected</label>
+            <select id="bulk-email-type" name="type" class="field-input min-w-64">
+                <option value="application">Application confirmation</option>
+                <option value="payment">Payment confirmation</option>
+                <option value="slot">Slot confirmation</option>
+            </select>
+        </div>
+        <button type="submit" id="bulk-email-submit" class="btn-primary" onclick="return confirm('Send this confirmation email to the selected applicants?');">Send to selected</button>
+        <p id="bulk-email-count" class="text-sm text-white/55 sm:pb-3">0 selected</p>
+    </form>
+
     <div class="overflow-x-auto rounded-3xl border border-white/10 bg-white/5">
         <table class="admin-table">
             <thead>
                 <tr>
+                    <th>
+                        <label class="inline-flex items-center gap-2">
+                            <input type="checkbox" id="select-all-applicants" form="bulk-email-form" class="h-4 w-4 accent-ktg-lime" @disabled($applicants->isEmpty())>
+                            <span class="sr-only">Select all on this page</span>
+                        </label>
+                    </th>
                     <th>Registration No.</th>
                     <th>Photo</th>
                     <th>Full Name</th>
@@ -93,6 +113,9 @@
             <tbody>
                 @forelse ($applicants as $applicant)
                     <tr @class(['opacity-80' => $applicant->slot_status->value === 'withdrawn'])>
+                        <td>
+                            <input type="checkbox" name="ids[]" value="{{ $applicant->id }}" form="bulk-email-form" class="js-applicant-checkbox h-4 w-4 accent-ktg-lime">
+                        </td>
                         <td class="font-semibold text-ktg-lime">{{ $applicant->registration_number }}</td>
                         <td>
                             <a href="{{ route('admin.applicants.show', $applicant) }}" aria-label="View {{ $applicant->fullName() }}">
@@ -135,7 +158,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="13" class="py-10 text-center text-white/50">No applicants match these filters.</td></tr>
+                    <tr><td colspan="14" class="py-10 text-center text-white/50">No applicants match these filters.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\ApplicantFileController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CategoryRegistrationController;
 use App\Http\Controllers\Admin\CategoryTransferController;
+use App\Http\Controllers\Admin\ConfirmationEmailController;
 use App\Http\Controllers\Admin\ConfirmedApplicantsExportController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ProfileController;
@@ -67,6 +68,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/profile', ProfileController::class)->name('profile');
 
         Route::get('/waiting-list', WaitingListController::class)->name('waiting-list');
+        Route::get('/emails', [ConfirmationEmailController::class, 'index'])->name('emails.index');
+        Route::post('/emails', [ConfirmationEmailController::class, 'store'])->name('emails.store');
         Route::get('/categories', [CategoryRegistrationController::class, 'index'])->name('categories.index');
         Route::put('/categories/{level}', [CategoryRegistrationController::class, 'update'])->name('categories.update');
         Route::put('/categories/{level}/limits', [CategoryRegistrationController::class, 'updateLimits'])->name('categories.limits');
@@ -74,6 +77,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/confirmed-slots/refresh', [RefreshConfirmedSlotsController::class, 'create'])->name('confirmed-slots.refresh');
         Route::post('/confirmed-slots/refresh', [RefreshConfirmedSlotsController::class, 'store'])->name('confirmed-slots.refresh.store');
         Route::get('/applicants', [ApplicantController::class, 'index'])->name('applicants.index');
+        Route::post('/applicants/emails', [ApplicantController::class, 'sendSelectedEmails'])->name('applicants.emails.selected');
         Route::get('/applicants/{registration}/edit', [ApplicantController::class, 'edit'])->name('applicants.edit');
         Route::put('/applicants/{registration}', [ApplicantController::class, 'update'])->name('applicants.update');
         Route::delete('/applicants/{registration}', [ApplicantController::class, 'destroy'])->name('applicants.destroy');
@@ -84,6 +88,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/applicants/{registration}/reject-payment', [ApplicantController::class, 'rejectPayment'])->name('applicants.reject-payment');
         Route::post('/applicants/{registration}/withdraw', [ApplicantController::class, 'withdraw'])->name('applicants.withdraw');
         Route::post('/applicants/{registration}/promote', [ApplicantController::class, 'promote'])->name('applicants.promote');
+        Route::post('/applicants/{registration}/emails', [ApplicantController::class, 'sendEmail'])->name('applicants.emails');
         Route::post('/applicants/{registration}/category-transfer', [CategoryTransferController::class, 'store'])->name('applicants.category-transfer');
 
         Route::get('/applicants/{registration}/photo', [ApplicantFileController::class, 'photo'])->name('applicants.photo');

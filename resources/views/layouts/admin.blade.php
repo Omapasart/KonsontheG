@@ -31,6 +31,7 @@
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'rejected']) }}" class="nav-link {{ request('registration_status') === 'rejected' ? 'nav-link-active' : '' }}">Rejected</a>
                     <a href="{{ route('admin.waiting-list') }}" class="nav-link {{ request()->routeIs('admin.waiting-list') ? 'nav-link-active' : '' }}">Waiting List</a>
                     <a href="{{ route('admin.categories.index') }}" class="nav-link {{ request()->routeIs('admin.categories.*') ? 'nav-link-active' : '' }}">Category Registration</a>
+                    <a href="{{ route('admin.emails.index') }}" class="nav-link {{ request()->routeIs('admin.emails.*') ? 'nav-link-active' : '' }}">Confirmation Emails</a>
                 </nav>
 
                 <div class="border-t border-white/10 px-3 py-4 text-sm">

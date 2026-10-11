@@ -8,6 +8,7 @@ use App\Enums\SlotStatus;
 use App\Mail\PaymentRejected;
 use App\Mail\PaymentVerified;
 use App\Mail\RegistrationApproved;
+use App\Mail\RegistrationReceived;
 use App\Mail\RegistrationRejected;
 use App\Mail\RegistrationWithdrawn;
 use App\Mail\WaitingListPlaced;
@@ -332,6 +333,128 @@ class AdminRegistrationService
         if ($promoted) {
             $this->capacity->notifyPromoted($promoted);
         }
+    }
+
+    public function sendConfirmationEmail(Registration $registration, User $admin, string $type): bool
+    {
+        $mailable = $this->confirmationMailable($registration, $type);
+        $sent = $this->mail($registration->email, $mailable);
+
+        $this->log(
+            $admin,
+            $registration,
+            'emailed_'.$type.'_confirmation',
+            null,
+            $sent ? 'sent' : 'failed',
+            'Manual '.$type.' confirmation emailed to '.$registration->email.'.'
+        );
+
+        if (! $sent) {
+            throw ValidationException::withMessages([
+                'email' => 'The '.$type.' confirmation email for '.$registration->registration_number.' could not be sent.',
+            ]);
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array{sent: int, failed: int, skipped: int}
+     */
+    public function sendConfirmationEmails(User $admin, string $type): array
+    {
+        $sent = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        foreach ($this->confirmationRecipients($type)->cursor() as $registration) {
+            try {
+                $this->sendConfirmationEmail($registration, $admin, $type);
+                $sent++;
+            } catch (ValidationException $exception) {
+                $failed++;
+            }
+        }
+
+        return compact('sent', 'failed', 'skipped');
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return array{sent: int, failed: int, skipped: int}
+     */
+    public function sendConfirmationEmailsTo(User $admin, string $type, array $ids): array
+    {
+        $sent = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        $registrations = Registration::query()
+            ->whereIn('id', $ids)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($registrations as $registration) {
+            try {
+                $this->confirmationMailable($registration, $type);
+            } catch (ValidationException $exception) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                $this->sendConfirmationEmail($registration, $admin, $type);
+                $sent++;
+            } catch (ValidationException $exception) {
+                $failed++;
+            }
+        }
+
+        return compact('sent', 'failed', 'skipped');
+    }
+
+    public function confirmationRecipientCount(string $type): int
+    {
+        return $this->confirmationRecipients($type)->count();
+    }
+
+    private function confirmationRecipients(string $type)
+    {
+        return match ($type) {
+            'application' => Registration::query()->whereNotNull('email'),
+            'payment' => Registration::query()
+                ->where('payment_status', PaymentStatus::Verified)
+                ->whereNotNull('email'),
+            'slot' => Registration::query()
+                ->whereIn('slot_status', [SlotStatus::Confirmed, SlotStatus::Waiting])
+                ->whereNotNull('email'),
+            default => throw ValidationException::withMessages([
+                'type' => 'Unknown confirmation email type.',
+            ]),
+        };
+    }
+
+    private function confirmationMailable(Registration $registration, string $type): object
+    {
+        return match ($type) {
+            'application' => new RegistrationReceived($registration),
+            'payment' => $registration->payment_status === PaymentStatus::Verified
+                ? new PaymentVerified($registration)
+                : throw ValidationException::withMessages([
+                    'payment_status' => 'Payment confirmation can only be sent after the payment is verified.',
+                ]),
+            'slot' => match ($registration->slot_status) {
+                SlotStatus::Confirmed => new RegistrationApproved($registration),
+                SlotStatus::Waiting => new WaitingListPlaced($registration),
+                default => throw ValidationException::withMessages([
+                    'slot_status' => 'Slot confirmation can only be sent to confirmed or waiting-list applicants.',
+                ]),
+            },
+            default => throw ValidationException::withMessages([
+                'type' => 'Unknown confirmation email type.',
+            ]),
+        };
     }
 
     public function promote(Registration $registration, User $admin): void
