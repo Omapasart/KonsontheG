@@ -24,12 +24,13 @@
 
                 <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4 text-sm">
                     <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'nav-link-active' : '' }}">Dashboard</a>
-                    <a href="{{ route('admin.applicants.index') }}" class="nav-link {{ request()->routeIs('admin.applicants.*') && ! request()->filled('registration_status') && ! request()->filled('payment_status') && ! request()->filled('slot_status') && request('status') !== 'withdrawn' ? 'nav-link-active' : '' }}">Applicants</a>
+                    <a href="{{ route('admin.applicants.index') }}" class="nav-link {{ request()->routeIs('admin.applicants.*') && ! request()->filled('registration_status') && ! request()->filled('payment_status') && ! request()->filled('slot_status') && request('status') !== 'withdrawn' ? 'nav-link-active' : '' }}">Manage Applicants</a>
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'pending']) }}" class="nav-link {{ request('registration_status') === 'pending' ? 'nav-link-active' : '' }}">Pending Review</a>
                     <a href="{{ route('admin.applicants.index', ['payment_status' => 'pending']) }}" class="nav-link {{ request('payment_status') === 'pending' && request('registration_status') === null ? 'nav-link-active' : '' }}">Payment Verification</a>
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'approved']) }}" class="nav-link {{ request('registration_status') === 'approved' ? 'nav-link-active' : '' }}">Approved</a>
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'rejected']) }}" class="nav-link {{ request('registration_status') === 'rejected' ? 'nav-link-active' : '' }}">Rejected</a>
                     <a href="{{ route('admin.waiting-list') }}" class="nav-link {{ request()->routeIs('admin.waiting-list') ? 'nav-link-active' : '' }}">Waiting List</a>
+                    <a href="{{ route('admin.categories.index') }}" class="nav-link {{ request()->routeIs('admin.categories.*') ? 'nav-link-active' : '' }}">Category Registration</a>
                 </nav>
 
                 <div class="border-t border-white/10 px-3 py-4 text-sm">

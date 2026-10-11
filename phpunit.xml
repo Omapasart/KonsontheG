@@ -33,6 +33,12 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="TOURNAMENT_BEGINNER_CAPACITY" value="36" force="true"/>
+        <env name="TOURNAMENT_BEGINNER_WAITING" value="5" force="true"/>
+        <env name="TOURNAMENT_NOVICE_CAPACITY" value="48" force="true"/>
+        <env name="TOURNAMENT_NOVICE_WAITING" value="5" force="true"/>
+        <env name="TOURNAMENT_INTERMEDIATE_CAPACITY" value="36" force="true"/>
+        <env name="TOURNAMENT_INTERMEDIATE_WAITING" value="5" force="true"/>
         <env name="TOURNAMENT_BEGINNER_CLOSED" value="false"/>
         <env name="TOURNAMENT_NOVICE_CLOSED" value="false"/>
         <env name="TOURNAMENT_INTERMEDIATE_CLOSED" value="false"/>

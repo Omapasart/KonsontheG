@@ -9,10 +9,12 @@ use App\Mail\PaymentRejected;
 use App\Mail\PaymentVerified;
 use App\Mail\RegistrationApproved;
 use App\Mail\RegistrationRejected;
+use App\Mail\SlotConfirmed;
 use App\Models\AdminActivityLog;
 use App\Models\Registration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -34,6 +36,9 @@ class AdminApplicantTest extends TestCase
     {
         $this->get(route('admin.dashboard'))->assertRedirect(route('admin.login'));
         $this->get(route('admin.applicants.index'))->assertRedirect(route('admin.login'));
+        $registration = Registration::factory()->create();
+        $this->get(route('admin.applicants.edit', $registration))->assertRedirect(route('admin.login'));
+        $this->delete(route('admin.applicants.destroy', $registration))->assertRedirect(route('admin.login'));
     }
 
     public function test_non_admin_users_cannot_access_admin(): void
@@ -231,7 +236,7 @@ class AdminApplicantTest extends TestCase
             ->assertSee($registration->registration_number)
             ->assertSee('Approve Registration')
             ->assertSee('Transfer Category')
-            ->assertDontSee('Reject Registration')
+            ->assertSee('Reject Registration')
             ->assertSee('Verify Payment')
             ->assertDontSee('Facebook');
 
@@ -457,8 +462,144 @@ class AdminApplicantTest extends TestCase
             ->assertSee('Reject Payment');
     }
 
+    public function test_admin_can_edit_applicant_details_without_changing_slot_or_status(): void
+    {
+        $registration = Registration::factory()->create([
+            'last_name' => 'Santos',
+            'first_name' => 'Ana',
+            'email' => 'ana@example.com',
+            'contact_number' => '09171234567',
+            'address' => 'Old Address',
+            'registration_status' => RegistrationStatus::Pending,
+            'payment_status' => PaymentStatus::Pending,
+            'slot_status' => SlotStatus::PendingVerification,
+            'entry_level' => 'novice',
+        ]);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->get(route('admin.applicants.edit', $registration))
+            ->assertOk()
+            ->assertSee('Edit Applicant Details')
+            ->assertSee('ana@example.com');
+
+        $this->actingAs($admin)
+            ->put(route('admin.applicants.update', $registration), [
+                'last_name' => 'Santos',
+                'first_name' => 'Anita',
+                'middle_initial' => 'B',
+                'contact_number' => '09179876543',
+                'address' => 'New Address, Malaybalay',
+                'email' => 'anita.santos@example.com',
+            ])
+            ->assertRedirect(route('admin.applicants.show', $registration));
+
+        $registration->refresh();
+
+        $this->assertSame('Anita', $registration->first_name);
+        $this->assertSame('anita.santos@example.com', $registration->email);
+        $this->assertSame('09179876543', $registration->contact_number);
+        $this->assertSame(RegistrationStatus::Pending, $registration->registration_status);
+        $this->assertSame(PaymentStatus::Pending, $registration->payment_status);
+        $this->assertSame(SlotStatus::PendingVerification, $registration->slot_status);
+        $this->assertSame('novice', $registration->entry_level->value);
+        $this->assertDatabaseHas('admin_activity_logs', [
+            'registration_id' => $registration->id,
+            'action' => 'updated_details',
+        ]);
+    }
+
+    public function test_admin_cannot_save_an_email_already_used_by_another_applicant(): void
+    {
+        Registration::factory()->create(['email' => 'taken@example.com']);
+        $registration = Registration::factory()->create(['email' => 'mine@example.com']);
+
+        $this->actingAs($this->admin())
+            ->from(route('admin.applicants.edit', $registration))
+            ->put(route('admin.applicants.update', $registration), [
+                'last_name' => $registration->last_name,
+                'first_name' => $registration->first_name,
+                'middle_initial' => $registration->middle_initial,
+                'contact_number' => $registration->contact_number,
+                'address' => $registration->address,
+                'email' => 'taken@example.com',
+            ])
+            ->assertRedirect(route('admin.applicants.edit', $registration))
+            ->assertSessionHasErrors('email');
+
+        $this->assertSame('mine@example.com', $registration->fresh()->email);
+    }
+
+    public function test_admin_can_replace_an_applicant_photo(): void
+    {
+        $registration = Registration::factory()->create();
+        Storage::disk('local')->put($registration->photo_path, 'old-photo');
+        $oldPhoto = $registration->photo_path;
+        $photo = $this->tinyPngUpload();
+
+        $this->actingAs($this->admin())
+            ->put(route('admin.applicants.update', $registration), [
+                'last_name' => $registration->last_name,
+                'first_name' => $registration->first_name,
+                'middle_initial' => $registration->middle_initial,
+                'contact_number' => $registration->contact_number,
+                'address' => $registration->address,
+                'email' => $registration->email,
+                'photo' => $photo,
+            ])
+            ->assertRedirect(route('admin.applicants.show', $registration));
+
+        $registration->refresh();
+        $this->assertNotSame($oldPhoto, $registration->photo_path);
+        $this->assertTrue(Storage::disk('local')->exists($registration->photo_path));
+        $this->assertFalse(Storage::disk('local')->exists($oldPhoto));
+    }
+
+    public function test_admin_can_delete_an_applicant_and_free_their_email(): void
+    {
+        $registration = Registration::factory()->create(['email' => 'gone@example.com']);
+        Storage::disk('local')->put($registration->photo_path, 'photo');
+        Storage::disk('local')->put($registration->payment_proof_path, 'proof');
+        $photo = $registration->photo_path;
+        $proof = $registration->payment_proof_path;
+        $id = $registration->id;
+
+        $this->actingAs($this->admin())
+            ->from(route('admin.applicants.show', $registration))
+            ->delete(route('admin.applicants.destroy', $registration))
+            ->assertRedirect(route('admin.applicants.index'));
+
+        $this->assertDatabaseMissing('registrations', ['id' => $id]);
+        $this->assertFalse(Storage::disk('local')->exists($photo));
+        $this->assertFalse(Storage::disk('local')->exists($proof));
+        $this->assertFalse(Registration::emailIsRegistered('gone@example.com'));
+        $this->assertDatabaseHas('admin_activity_logs', ['action' => 'deleted']);
+    }
+
+    public function test_deleting_a_confirmed_applicant_promotes_the_waiting_list(): void
+    {
+        $confirmed = Registration::factory()->confirmed()->create(['entry_level' => 'novice']);
+        $waiting = Registration::factory()->waiting(1)->create(['entry_level' => 'novice']);
+
+        $this->actingAs($this->admin())
+            ->delete(route('admin.applicants.destroy', $confirmed))
+            ->assertRedirect(route('admin.applicants.index'));
+
+        $this->assertDatabaseMissing('registrations', ['id' => $confirmed->id]);
+        $this->assertSame(SlotStatus::Confirmed, $waiting->fresh()->slot_status);
+        Mail::assertSent(SlotConfirmed::class, fn ($mail) => $mail->hasTo($waiting->email));
+    }
+
     private function admin(): User
     {
         return User::factory()->admin()->create();
+    }
+
+    private function tinyPngUpload(): UploadedFile
+    {
+        $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'ktg-test-photo.png';
+        file_put_contents($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+        return new UploadedFile($path, 'new-photo.png', 'image/png', null, true);
     }
 }

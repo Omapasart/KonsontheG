@@ -114,7 +114,7 @@ class PublishedCategoryLimitsTest extends TestCase
 
     public function test_closed_beginner_category_rejects_new_applicants_without_changing_records(): void
     {
-        config(['tournament.categories.beginner.closed' => true]);
+        \App\Models\CategoryLock::query()->where('entry_level', 'beginner')->update(['registration_closed' => true]);
 
         Registration::factory()->confirmed()->create(['entry_level' => 'beginner']);
         $existing = Registration::query()->count();

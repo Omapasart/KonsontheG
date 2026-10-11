@@ -35,6 +35,7 @@ class CategoryTransferTest extends TestCase
             'tournament.categories.intermediate.capacity' => 2,
             'tournament.categories.intermediate.waiting_capacity' => 2,
         ]);
+        $this->writeCategoryLimitsFromConfig();
     }
 
     public function test_admin_can_request_upward_transfer_without_changing_category(): void
@@ -233,8 +234,8 @@ class CategoryTransferTest extends TestCase
             ->assertOk()
             ->assertSee('Approve Registration')
             ->assertSee('Transfer Category')
+            ->assertSee('Reject Registration')
             ->assertDontSee('Reason for Transfer')
-            ->assertDontSee('Reject Registration')
             ->assertDontSee('Request Category Transfer');
     }
 

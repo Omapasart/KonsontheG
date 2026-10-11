@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
-@section('title', 'Applicants')
-@section('heading', 'Applicants')
+@section('title', 'Manage Applicants')
+@section('heading', 'Manage Applicants')
 
 @section('content')
     @include('admin.partials.roster-actions')
@@ -124,7 +124,15 @@
                             @endif
                         </td>
                         <td>{{ $applicant->created_at->format('M j, Y') }}</td>
-                        <td><a href="{{ route('admin.applicants.show', $applicant) }}" class="btn-ghost !px-4 !py-2 text-xs">View</a></td>
+                        <td class="whitespace-nowrap">
+                            <a href="{{ route('admin.applicants.show', $applicant) }}" class="btn-ghost !px-4 !py-2 text-xs">View</a>
+                            <a href="{{ route('admin.applicants.edit', $applicant) }}" class="btn-ghost !px-4 !py-2 text-xs">Edit</a>
+                            <form method="POST" action="{{ route('admin.applicants.destroy', $applicant) }}" class="inline" onsubmit="return confirm('Delete {{ $applicant->registration_number }} permanently? Their slot will be released if they currently occupy one.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="rounded-full bg-red-600 px-4 py-2 text-xs font-extrabold uppercase tracking-widest">Delete</button>
+                            </form>
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="13" class="py-10 text-center text-white/50">No applicants match these filters.</td></tr>

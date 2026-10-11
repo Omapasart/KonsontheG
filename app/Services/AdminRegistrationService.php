@@ -15,12 +15,134 @@ use App\Models\AdminActivityLog;
 use App\Models\Registration;
 use App\Models\User;
 use App\Support\AppMail;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AdminRegistrationService
 {
     public function __construct(private readonly CategoryCapacityService $capacity) {}
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    public function updateDetails(Registration $registration, User $admin, array $attributes, ?UploadedFile $photo = null): Registration
+    {
+        return DB::transaction(function () use ($registration, $admin, $attributes, $photo) {
+            $locked = Registration::query()->whereKey($registration->id)->lockForUpdate()->firstOrFail();
+            $slotStatus = $locked->slot_status->value;
+            $registrationStatus = $locked->registration_status->value;
+            $paymentStatus = $locked->payment_status->value;
+            $entryLevel = $locked->entry_level->value;
+
+            $updates = [
+                'last_name' => $attributes['last_name'],
+                'first_name' => $attributes['first_name'],
+                'middle_initial' => filled($attributes['middle_initial'] ?? null) ? $attributes['middle_initial'] : null,
+                'contact_number' => $attributes['contact_number'],
+                'address' => $attributes['address'],
+                'email' => Registration::normalizeEmail($attributes['email'] ?? null),
+            ];
+
+            $changes = [];
+
+            foreach ($updates as $field => $value) {
+                $current = $locked->{$field};
+                $currentValue = $current === null ? '' : (string) $current;
+                $nextValue = $value === null ? '' : (string) $value;
+
+                if ($currentValue !== $nextValue) {
+                    $changes[] = str_replace('_', ' ', $field).': '.$currentValue.' → '.$nextValue;
+                }
+            }
+
+            if ($photo instanceof UploadedFile) {
+                $extension = strtolower($photo->getClientOriginalExtension() ?: $photo->extension() ?: 'jpg');
+                $destination = 'registrations/photos/'.Str::uuid().'.'.$extension;
+                Storage::disk('local')->putFileAs('registrations/photos', $photo, basename($destination));
+
+                $oldPhoto = $locked->photo_path;
+                $updates['photo_path'] = $destination;
+                $changes[] = 'photo replaced';
+
+                if (filled($oldPhoto) && $oldPhoto !== $destination && Storage::disk('local')->exists($oldPhoto)) {
+                    Storage::disk('local')->delete($oldPhoto);
+                }
+            }
+
+            if ($changes === []) {
+                return $locked;
+            }
+
+            try {
+                $locked->update($updates);
+            } catch (UniqueConstraintViolationException $exception) {
+                throw ValidationException::withMessages([
+                    'email' => Registration::EMAIL_TAKEN_MESSAGE,
+                ]);
+            }
+
+            $updated = $locked->fresh();
+
+            if (
+                $updated->slot_status->value !== $slotStatus
+                || $updated->registration_status->value !== $registrationStatus
+                || $updated->payment_status->value !== $paymentStatus
+                || $updated->entry_level->value !== $entryLevel
+            ) {
+                throw ValidationException::withMessages([
+                    'registration' => 'Applicant details could not be saved without changing slot or status records.',
+                ]);
+            }
+
+            $this->log($admin, $updated, 'updated_details', null, null, implode('; ', $changes));
+
+            return $updated;
+        });
+    }
+
+    public function deleteApplicant(Registration $registration, User $admin): ?Registration
+    {
+        $promoted = DB::transaction(function () use ($registration, $admin) {
+            $locked = Registration::query()->whereKey($registration->id)->lockForUpdate()->firstOrFail();
+            $number = $locked->registration_number;
+            $name = $locked->fullName();
+            $oldSlot = $locked->slot_status->value;
+            $photo = $locked->photo_path;
+            $proof = $locked->payment_proof_path;
+
+            $promoted = $this->capacity->vacateIfOccupying($locked);
+            $locked->refresh();
+
+            $this->log(
+                $admin,
+                $locked,
+                'deleted',
+                $oldSlot,
+                null,
+                sprintf('Deleted %s %s.', $number, $name)
+            );
+
+            $locked->delete();
+
+            foreach ([$photo, $proof] as $path) {
+                if (filled($path) && Storage::disk('local')->exists($path)) {
+                    Storage::disk('local')->delete($path);
+                }
+            }
+
+            return $promoted;
+        });
+
+        if ($promoted) {
+            $this->capacity->notifyPromoted($promoted);
+        }
+
+        return $promoted;
+    }
 
     public function approve(Registration $registration, User $admin): Registration
     {

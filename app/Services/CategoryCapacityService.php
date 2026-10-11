@@ -6,6 +6,7 @@ use App\Enums\EntryLevel;
 use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
 use App\Mail\SlotConfirmed;
+use App\Models\CategoryLock;
 use App\Models\Registration;
 use App\Support\AppMail;
 use Illuminate\Support\Facades\DB;
@@ -25,10 +26,16 @@ class CategoryCapacityService
             throw new \InvalidArgumentException('Unknown tournament category: '.$key);
         }
 
+        $lock = CategoryLock::query()->find($key);
+
         return [
-            'capacity' => (int) $config['capacity'],
-            'waiting_capacity' => (int) $config['waiting_capacity'],
-            'closed' => (bool) ($config['closed'] ?? false),
+            'capacity' => $lock?->confirmed_capacity !== null
+                ? (int) $lock->confirmed_capacity
+                : (int) $config['capacity'],
+            'waiting_capacity' => $lock?->waiting_capacity !== null
+                ? (int) $lock->waiting_capacity
+                : (int) $config['waiting_capacity'],
+            'closed' => $this->isRegistrationClosed($key, $config),
         ];
     }
 
@@ -60,7 +67,7 @@ class CategoryCapacityService
         $waitingRemaining = $closed ? 0 : max(0, $limits['waiting_capacity'] - $waiting);
         $isFull = $closed || ($regularRemaining === 0 && $waitingRemaining === 0);
         $isWaiting = ! $closed && $regularRemaining === 0 && $waitingRemaining > 0;
-        $availability = $isFull ? 'full' : ($isWaiting ? 'waiting' : 'open');
+        $availability = $closed ? 'closed' : ($isFull ? 'full' : ($isWaiting ? 'waiting' : 'open'));
 
         return [
             'level' => $enum,
@@ -76,6 +83,7 @@ class CategoryCapacityService
             'is_open' => ! $closed && $regularRemaining > 0,
             'availability' => $availability,
             'availability_label' => match ($availability) {
+                'closed' => 'CLOSED',
                 'full' => 'FULL',
                 'waiting' => 'WAITING LIST ONLY',
                 default => 'OPEN',
@@ -430,6 +438,17 @@ class CategoryCapacityService
     public function notifyPromoted(Registration $registration): void
     {
         AppMail::send($registration->email, new SlotConfirmed($registration));
+    }
+
+    private function isRegistrationClosed(string $key, array $config): bool
+    {
+        $lock = CategoryLock::query()->find($key);
+
+        if ($lock !== null) {
+            return (bool) $lock->registration_closed;
+        }
+
+        return (bool) ($config['closed'] ?? false);
     }
 
     public function lockCategory(EntryLevel|string $level): void

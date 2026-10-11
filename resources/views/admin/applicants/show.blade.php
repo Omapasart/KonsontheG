@@ -4,8 +4,16 @@
 @section('heading', 'Applicant Details')
 
 @section('content')
-    <div class="mb-4">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <a href="{{ route('admin.applicants.index') }}" class="text-sm text-ktg-lime underline">← Back to applicants</a>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('admin.applicants.edit', $registration) }}" class="btn-primary !px-5 !py-2.5 text-xs">Edit Applicant Details</a>
+            <form method="POST" action="{{ route('admin.applicants.destroy', $registration) }}" onsubmit="return confirm('Delete {{ $registration->registration_number }} permanently? Their slot will be released if they currently occupy one.');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="rounded-full bg-red-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-widest">Delete</button>
+            </form>
+        </div>
     </div>
 
     <section class="grid grid-cols-1 gap-6 rounded-3xl border border-white/10 bg-white/5 p-5 sm:grid-cols-[180px_1fr] lg:grid-cols-[220px_1fr] lg:p-8">
@@ -283,6 +291,11 @@
                 <form method="POST" action="{{ route('admin.applicants.approve', $registration) }}" onsubmit="return confirm('Verify this applicant and assign a slot based on current category availability?');">
                     @csrf
                     <button type="submit" class="btn-primary">Approve Registration</button>
+                </form>
+                <form method="POST" action="{{ route('admin.applicants.reject', $registration) }}" class="flex flex-col gap-2 sm:flex-row">
+                    @csrf
+                    <input type="text" name="reason" class="field-input min-w-56" placeholder="Rejection reason" required minlength="5">
+                    <button type="submit" class="rounded-full bg-red-600 px-6 py-3 text-sm font-extrabold uppercase tracking-widest" onclick="return confirm('Reject this registration?');">Reject Registration</button>
                 </form>
             @endif
             @if ($canTransfer)

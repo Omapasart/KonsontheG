@@ -38,6 +38,7 @@ class CategoryCapacityTest extends TestCase
             'tournament.categories.intermediate.capacity' => 2,
             'tournament.categories.intermediate.waiting_capacity' => 2,
         ]);
+        $this->writeCategoryLimitsFromConfig();
     }
 
     public function test_published_tournament_limits(): void

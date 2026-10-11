@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ApplicantController;
 use App\Http\Controllers\Admin\ApplicantFileController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\CategoryRegistrationController;
 use App\Http\Controllers\Admin\CategoryTransferController;
 use App\Http\Controllers\Admin\ConfirmedApplicantsExportController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -66,10 +67,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/profile', ProfileController::class)->name('profile');
 
         Route::get('/waiting-list', WaitingListController::class)->name('waiting-list');
+        Route::get('/categories', [CategoryRegistrationController::class, 'index'])->name('categories.index');
+        Route::put('/categories/{level}', [CategoryRegistrationController::class, 'update'])->name('categories.update');
+        Route::put('/categories/{level}/limits', [CategoryRegistrationController::class, 'updateLimits'])->name('categories.limits');
         Route::get('/confirmed-applicants/export', ConfirmedApplicantsExportController::class)->name('confirmed-applicants.export');
         Route::get('/confirmed-slots/refresh', [RefreshConfirmedSlotsController::class, 'create'])->name('confirmed-slots.refresh');
         Route::post('/confirmed-slots/refresh', [RefreshConfirmedSlotsController::class, 'store'])->name('confirmed-slots.refresh.store');
         Route::get('/applicants', [ApplicantController::class, 'index'])->name('applicants.index');
+        Route::get('/applicants/{registration}/edit', [ApplicantController::class, 'edit'])->name('applicants.edit');
+        Route::put('/applicants/{registration}', [ApplicantController::class, 'update'])->name('applicants.update');
+        Route::delete('/applicants/{registration}', [ApplicantController::class, 'destroy'])->name('applicants.destroy');
         Route::get('/applicants/{registration}', [ApplicantController::class, 'show'])->name('applicants.show');
         Route::post('/applicants/{registration}/approve', [ApplicantController::class, 'approve'])->name('applicants.approve');
         Route::post('/applicants/{registration}/reject', [ApplicantController::class, 'reject'])->name('applicants.reject');

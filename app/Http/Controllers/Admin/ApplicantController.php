@@ -9,6 +9,7 @@ use App\Enums\TournamentExperience;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectPaymentRequest;
 use App\Http\Requests\Admin\RejectRegistrationRequest;
+use App\Http\Requests\Admin\UpdateApplicantRequest;
 use App\Models\Registration;
 use App\Enums\SlotStatus;
 use App\Services\AdminRegistrationService;
@@ -105,6 +106,48 @@ class ApplicantController extends Controller
         ]);
 
         return view('admin.applicants.show', compact('registration'));
+    }
+
+    public function edit(Registration $registration): View
+    {
+        return view('admin.applicants.edit', compact('registration'));
+    }
+
+    public function update(UpdateApplicantRequest $request, Registration $registration): RedirectResponse
+    {
+        try {
+            $this->adminRegistrations->updateDetails(
+                $registration,
+                $request->user(),
+                $request->safe()->except('photo'),
+                $request->file('photo')
+            );
+        } catch (ValidationException $exception) {
+            return back()->withInput()->withErrors($exception->errors());
+        }
+
+        return redirect()
+            ->route('admin.applicants.show', $registration)
+            ->with('success', 'Applicant '.$registration->registration_number.' details were updated. Slot and status records were not changed.');
+    }
+
+    public function destroy(Request $request, Registration $registration): RedirectResponse
+    {
+        $number = $registration->registration_number;
+
+        try {
+            $promoted = $this->adminRegistrations->deleteApplicant($registration, $request->user());
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        $message = 'Applicant '.$number.' has been deleted.';
+
+        if ($promoted) {
+            $message .= ' '.$promoted->registration_number.' was promoted from the waiting list to a confirmed slot.';
+        }
+
+        return redirect()->route('admin.applicants.index')->with('success', $message);
     }
 
     public function approve(Request $request, Registration $registration): RedirectResponse

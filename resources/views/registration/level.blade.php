@@ -56,7 +56,9 @@
                                 <span class="text-[11px] uppercase tracking-widest text-white/55">
                                     {{ $category['waiting_remaining'] }} waiting-list slots remaining
                                 </span>
-                                @if ($category['is_full'])
+                                @if ($category['closed'])
+                                    <span class="text-xs font-extrabold uppercase tracking-widest text-red-300">CLOSED — NOT ACCEPTING APPLICANTS</span>
+                                @elseif ($category['is_full'])
                                     <span class="text-xs font-extrabold uppercase tracking-widest text-red-300">FULL — REGISTRATION CLOSED</span>
                                 @elseif ($category['is_waiting'])
                                     <span class="text-xs font-extrabold uppercase tracking-widest text-amber-300">WAITING LIST ONLY</span>
