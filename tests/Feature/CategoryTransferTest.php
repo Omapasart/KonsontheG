@@ -10,9 +10,11 @@ use App\Mail\CategoryTransferDeclined;
 use App\Mail\CategoryTransferRequested;
 use App\Mail\CategoryTransferUnavailable;
 use App\Mail\SlotConfirmed;
+use App\Models\CategoryLock;
 use App\Models\CategoryTransferRequest;
 use App\Models\Registration;
 use App\Models\User;
+use App\Services\CategoryCapacityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
@@ -174,6 +176,43 @@ class CategoryTransferTest extends TestCase
         $this->assertSame(1, $applicant->fresh()->waiting_list_position);
     }
 
+    public function test_applicant_can_accept_transfer_into_a_closed_category_when_a_slot_remains(): void
+    {
+        CategoryLock::query()->where('entry_level', 'novice')->update(['registration_closed' => true]);
+
+        $applicant = Registration::factory()->create(['entry_level' => 'beginner', 'slot_status' => 'confirmed']);
+        $transfer = $this->requestTransfer($applicant, 'novice');
+
+        $this->respond($transfer, 'accept')
+            ->assertOk()
+            ->assertSee('Category Transfer Accepted');
+
+        $this->assertSame('novice', $applicant->fresh()->entry_level->value);
+        $this->assertSame(SlotStatus::Confirmed, $applicant->fresh()->slot_status);
+        $this->assertSame(CategoryTransferStatus::Accepted, $transfer->fresh()->status);
+        $this->assertTrue(app(CategoryCapacityService::class)->statusFor('novice')['closed']);
+    }
+
+    public function test_accepted_transfer_is_still_blocked_when_a_closed_category_has_no_slots(): void
+    {
+        CategoryLock::query()->where('entry_level', 'novice')->update(['registration_closed' => true]);
+        Registration::factory()->count(2)->create(['entry_level' => 'novice', 'slot_status' => 'confirmed']);
+        Registration::factory()->count(2)->create([
+            'entry_level' => 'novice',
+            'slot_status' => 'waiting',
+            'confirmed_at' => null,
+        ]);
+        $applicant = Registration::factory()->create(['entry_level' => 'beginner', 'slot_status' => 'confirmed']);
+        $transfer = $this->requestTransfer($applicant, 'novice');
+
+        $this->respond($transfer, 'accept')
+            ->assertOk()
+            ->assertSee('currently full');
+
+        $this->assertSame('beginner', $applicant->fresh()->entry_level->value);
+        $this->assertSame(CategoryTransferStatus::Pending, $transfer->fresh()->status);
+    }
+
     public function test_accepted_transfer_is_blocked_when_target_category_is_completely_full(): void
     {
         Registration::factory()->count(2)->create(['entry_level' => 'novice', 'slot_status' => 'confirmed']);
@@ -270,8 +309,8 @@ class CategoryTransferTest extends TestCase
         $this->assertSame('novice', $applicant->entry_level->value);
         $this->assertSame(SlotStatus::PendingVerification, $applicant->slot_status);
         $this->assertSame(RegistrationStatus::Pending, $applicant->registration_status);
-        $this->assertSame(2, app(\App\Services\CategoryCapacityService::class)->statusFor('novice')['confirmed']);
-        $this->assertSame(0, app(\App\Services\CategoryCapacityService::class)->statusFor('novice')['waiting']);
+        $this->assertSame(2, app(CategoryCapacityService::class)->statusFor('novice')['confirmed']);
+        $this->assertSame(0, app(CategoryCapacityService::class)->statusFor('novice')['waiting']);
     }
 
     public function test_applicants_table_shows_pending_transfer_badge(): void

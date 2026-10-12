@@ -63,9 +63,10 @@ class CategoryCapacityService
         $confirmed = $this->countConfirmed($enum);
         $waiting = $this->countWaiting($enum);
         $closed = $limits['closed'];
-        $regularRemaining = $closed ? 0 : max(0, $limits['capacity'] - $confirmed);
-        $waitingRemaining = $closed ? 0 : max(0, $limits['waiting_capacity'] - $waiting);
-        $isFull = $closed || ($regularRemaining === 0 && $waitingRemaining === 0);
+        $regularRemaining = max(0, $limits['capacity'] - $confirmed);
+        $waitingRemaining = max(0, $limits['waiting_capacity'] - $waiting);
+        $occupancyFull = $regularRemaining === 0 && $waitingRemaining === 0;
+        $isFull = $closed || $occupancyFull;
         $isWaiting = ! $closed && $regularRemaining === 0 && $waitingRemaining > 0;
         $availability = $closed ? 'closed' : ($isFull ? 'full' : ($isWaiting ? 'waiting' : 'open'));
 
@@ -150,7 +151,7 @@ class CategoryCapacityService
         $this->lockCategory($enum);
         $status = $this->statusFor($enum);
 
-        if ($status['is_open']) {
+        if ($status['regular_remaining'] > 0) {
             return [
                 'slot_status' => SlotStatus::Confirmed,
                 'waiting_list_position' => null,
@@ -158,7 +159,7 @@ class CategoryCapacityService
             ];
         }
 
-        if ($status['is_waiting']) {
+        if ($status['waiting_remaining'] > 0) {
             return [
                 'slot_status' => SlotStatus::Waiting,
                 'waiting_list_position' => $status['waiting'] + 1,
@@ -332,7 +333,7 @@ class CategoryCapacityService
 
         $status = $this->statusFor($targetLevel);
 
-        if ($status['is_full']) {
+        if ($status['regular_remaining'] === 0 && $status['waiting_remaining'] === 0) {
             throw ValidationException::withMessages([
                 'entry_level' => 'The requested category is currently full, including its waiting list. Your category cannot be transferred at this time.',
             ]);
