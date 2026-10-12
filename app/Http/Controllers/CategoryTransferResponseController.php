@@ -70,7 +70,7 @@ class CategoryTransferResponseController extends Controller
 
         return view('transfers.result', [
             'title' => 'Registration Rejected',
-            'message' => 'Your decision has been recorded. Since you did not agree to compete in the proposed category, your tournament registration has been rejected. Your original registered category remains '.$updated->current_category->label().'.',
+            'message' => 'Your decision has been recorded. Since you did not agree to compete in the proposed category, your tournament registration has been rejected and your slot has been released.',
             'transfer' => $updated,
             'registration' => $updated->registration,
         ]);

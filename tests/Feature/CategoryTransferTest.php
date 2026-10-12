@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Enums\CategoryTransferStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
 use App\Mail\CategoryTransferConfirmed;
 use App\Mail\CategoryTransferDeclined;
+use App\Mail\CategoryTransferPaymentNonRefundable;
 use App\Mail\CategoryTransferRequested;
 use App\Mail\CategoryTransferUnavailable;
 use App\Mail\SlotConfirmed;
@@ -234,7 +236,7 @@ class CategoryTransferTest extends TestCase
         Mail::assertSent(CategoryTransferUnavailable::class, fn ($mail) => $mail->hasTo($admin->email));
     }
 
-    public function test_applicant_can_decline_and_keep_current_category(): void
+    public function test_declining_a_transfer_rejects_the_application_and_opens_the_slot(): void
     {
         $applicant = Registration::factory()->create([
             'entry_level' => 'beginner',
@@ -252,16 +254,45 @@ class CategoryTransferTest extends TestCase
 
         $this->respond($transfer, 'decline')
             ->assertOk()
-            ->assertSee('registration has been rejected');
+            ->assertSee('registration has been rejected')
+            ->assertSee('slot has been released');
 
         $applicant = $applicant->fresh();
         $this->assertSame('beginner', $applicant->entry_level->value);
         $this->assertSame(RegistrationStatus::Rejected, $applicant->registration_status);
-        $this->assertSame(SlotStatus::Withdrawn, $applicant->slot_status);
+        $this->assertSame(SlotStatus::Rejected, $applicant->slot_status);
+        $this->assertFalse($applicant->slot_status->occupiesSlot());
         $this->assertSame(CategoryTransferStatus::Declined, $transfer->fresh()->status);
         $this->assertSame(SlotStatus::Confirmed, $waiting->fresh()->slot_status);
+        $this->assertSame(2, app(CategoryCapacityService::class)->statusFor('beginner')['confirmed']);
+        $this->assertSame(0, app(CategoryCapacityService::class)->statusFor('beginner')['waiting']);
         Mail::assertSent(CategoryTransferDeclined::class, fn ($mail) => $mail->hasTo($applicant->email));
+        Mail::assertNotSent(CategoryTransferPaymentNonRefundable::class);
         Mail::assertSent(SlotConfirmed::class, fn ($mail) => $mail->hasTo($waiting->email));
+    }
+
+    public function test_declining_a_verified_payment_sends_a_non_refundable_proxy_notice(): void
+    {
+        $applicant = Registration::factory()->confirmed()->create(['entry_level' => 'beginner']);
+        $transfer = $this->requestTransfer($applicant, 'novice');
+
+        $this->respond($transfer, 'decline')
+            ->assertOk()
+            ->assertSee('registration has been rejected');
+
+        $applicant = $applicant->fresh();
+        $this->assertSame(PaymentStatus::Verified, $applicant->payment_status);
+        $this->assertSame(RegistrationStatus::Rejected, $applicant->registration_status);
+        $this->assertSame(SlotStatus::Rejected, $applicant->slot_status);
+
+        Mail::assertSent(CategoryTransferDeclined::class, fn ($mail) => $mail->hasTo($applicant->email));
+        Mail::assertSent(CategoryTransferPaymentNonRefundable::class, function ($mail) use ($applicant) {
+            $html = $mail->render();
+
+            return $mail->hasTo($applicant->email)
+                && str_contains($html, 'not refundable')
+                && str_contains($html, 'find a proxy');
+        });
     }
 
     public function test_registration_actions_show_only_approve_and_transfer_category(): void

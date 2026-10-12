@@ -33,7 +33,7 @@
                         <button type="submit" class="btn-ghost w-full">Decline</button>
                     </form>
                 </div>
-                <p class="mt-4 text-xs text-white/45">Your category will remain {{ $transfer->current_category->label() }} unless you agree. If you decline, your registration will be rejected automatically.</p>
+                <p class="mt-4 text-xs text-white/45">If you decline, your registration will be rejected automatically and your current slot will be released.</p>
             @else
                 <p class="mt-8 text-sm text-white/70">This request has already been {{ $transfer->status->label() }}.</p>
             @endif

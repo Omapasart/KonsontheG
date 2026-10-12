@@ -184,9 +184,9 @@ class CategoryCapacityService
         $this->lockCategory($registration->entry_level);
         $registration = Registration::query()->whereKey($registration->id)->lockForUpdate()->firstOrFail();
 
-        if ($registration->slot_status === SlotStatus::Withdrawn) {
+        if ($registration->slot_status->isReleased()) {
             throw ValidationException::withMessages([
-                'slot_status' => 'A withdrawn applicant cannot be assigned a tournament slot.',
+                'slot_status' => 'A withdrawn or rejected applicant cannot be assigned a tournament slot.',
             ]);
         }
 
@@ -312,9 +312,9 @@ class CategoryCapacityService
         $registration->refresh();
         $source = $registration->entry_level;
 
-        if ($registration->slot_status === SlotStatus::Withdrawn) {
+        if ($registration->slot_status->isReleased()) {
             throw ValidationException::withMessages([
-                'entry_level' => 'A withdrawn applicant cannot be transferred to another category.',
+                'entry_level' => 'A withdrawn or rejected applicant cannot be transferred to another category.',
             ]);
         }
 

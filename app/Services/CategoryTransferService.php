@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Enums\CategoryTransferResponse;
 use App\Enums\CategoryTransferStatus;
 use App\Enums\EntryLevel;
+use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
 use App\Mail\CategoryTransferConfirmed;
 use App\Mail\CategoryTransferDeclined;
+use App\Mail\CategoryTransferPaymentNonRefundable;
 use App\Mail\CategoryTransferRequested;
 use App\Mail\CategoryTransferUnavailable;
 use App\Models\AdminActivityLog;
@@ -43,9 +45,9 @@ class CategoryTransferService
                 ]);
             }
 
-            if ($locked->slot_status === SlotStatus::Withdrawn) {
+            if ($locked->slot_status->isReleased()) {
                 throw ValidationException::withMessages([
-                    'requested_category' => 'A withdrawn applicant cannot be transferred to another category.',
+                    'requested_category' => 'A withdrawn or rejected applicant cannot be transferred to another category.',
                 ]);
             }
 
@@ -176,8 +178,10 @@ class CategoryTransferService
 
             $registration = Registration::query()->whereKey($transfer->registration_id)->lockForUpdate()->firstOrFail();
             $previousStatus = $registration->registration_status->value;
+            $previousSlot = $registration->slot_status->value;
+            $paymentVerified = $registration->payment_status === PaymentStatus::Verified;
             $reason = sprintf(
-                'Applicant declined the proposed category transfer from %s to %s. Registration rejected. Original category remains %s.',
+                'Applicant declined the proposed category transfer from %s to %s. Registration and slot rejected. The %s slot was released.',
                 $transfer->current_category->label(),
                 $transfer->requested_category->label(),
                 $registration->entry_level->label()
@@ -189,14 +193,18 @@ class CategoryTransferService
                 'responded_at' => now(),
             ]);
 
-            $registration->update([
+            $promoted = $this->capacity->vacateIfOccupying($registration);
+
+            $registration->refresh()->update([
                 'registration_status' => RegistrationStatus::Rejected,
+                'slot_status' => SlotStatus::Rejected,
+                'waiting_list_position' => null,
+                'confirmed_at' => null,
                 'rejection_reason' => $reason,
                 'rejected_at' => now(),
                 'approved_at' => null,
             ]);
 
-            $promoted = $this->capacity->releaseSlot($registration);
             $registration = $registration->fresh();
 
             $this->log(
@@ -213,6 +221,14 @@ class CategoryTransferService
                 'rejected',
                 $previousStatus,
                 RegistrationStatus::Rejected->value,
+                $reason
+            );
+            $this->log(
+                $transfer->requestedBy,
+                $registration,
+                'slot_rejected',
+                $previousSlot,
+                SlotStatus::Rejected->value,
                 $reason
             );
 
@@ -233,10 +249,15 @@ class CategoryTransferService
             return [
                 'transfer' => $transfer->fresh(['registration']),
                 'promoted' => $promoted,
+                'payment_verified' => $paymentVerified,
             ];
         });
 
         $this->mail($result['transfer']->registration->email, new CategoryTransferDeclined($result['transfer']));
+
+        if ($result['payment_verified']) {
+            $this->mail($result['transfer']->registration->email, new CategoryTransferPaymentNonRefundable($result['transfer']));
+        }
 
         if ($result['promoted']) {
             $this->capacity->notifyPromoted($result['promoted']);

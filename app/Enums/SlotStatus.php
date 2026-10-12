@@ -8,6 +8,7 @@ enum SlotStatus: string
     case Confirmed = 'confirmed';
     case Waiting = 'waiting';
     case Withdrawn = 'withdrawn';
+    case Rejected = 'rejected';
 
     public function label(): string
     {
@@ -16,11 +17,17 @@ enum SlotStatus: string
             self::Confirmed => 'Confirmed',
             self::Waiting => 'Waiting List',
             self::Withdrawn => 'Withdrawn',
+            self::Rejected => 'Rejected',
         };
     }
 
     public function occupiesSlot(): bool
     {
         return $this === self::Confirmed || $this === self::Waiting;
+    }
+
+    public function isReleased(): bool
+    {
+        return $this === self::Withdrawn || $this === self::Rejected;
     }
 }

@@ -11,7 +11,7 @@
         <p>We would like to ask if you agree to be transferred to:</p>
         <p><strong>{{ strtoupper($transfer->requested_category->label()) }}</strong></p>
         <p>Please review the request and choose whether you agree or decline. </p>
-        <p><strong>If you decline this transfer, your tournament registration will be rejected automatically.</strong></p>
+        <p><strong>If you decline this transfer, your tournament registration will be rejected automatically and your slot will be released.</strong></p>
         <p style="margin:28px 0;">
             <a href="{{ $transfer->signedShowUrl() }}" style="display:inline-block;background:#c8e600;color:#0d0d0d;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:999px;margin-right:8px;">AGREE TO TRANSFER</a>
             <a href="{{ $transfer->signedShowUrl() }}" style="display:inline-block;border:1px solid #fff;color:#fff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:999px;">DECLINE TRANSFER</a>

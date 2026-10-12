@@ -125,7 +125,7 @@
         $latestTransfer = $registration->latestTransferRequest;
         $higherLevels = $registration->entry_level->higherLevels();
         $canTransfer = $pendingTransfer === null
-            && $registration->slot_status->value !== 'withdrawn'
+            && ! $registration->slot_status->isReleased()
             && $registration->registration_status->value !== 'rejected'
             && $higherLevels !== [];
     @endphp
@@ -313,7 +313,7 @@
                                 <option value="{{ $level->value }}" @selected(old('requested_category') === $level->value)>{{ $level->label() }}</option>
                             @endforeach
                         </select>
-                        <p class="mt-4 text-xs text-white/50">If the applicant declines, their registration will be rejected automatically.</p>
+                        <p class="mt-4 text-xs text-white/50">If the applicant declines, their registration will be rejected automatically and their slot will be released.</p>
                         <div class="mt-6 flex flex-wrap justify-end gap-3">
                             <button type="button" id="transfer-cancel" class="btn-ghost">Cancel</button>
                             <button type="submit" class="btn-primary">Send Transfer Request</button>
