@@ -31,18 +31,24 @@ class AdminUserSeederTest extends TestCase
                     'email' => 'isobelzara.aldeguer@gmail.com',
                     'password' => 'test-iso-password',
                 ],
+                [
+                    'name' => 'Admin Yedda - Konsonthego',
+                    'email' => 'iamyeddadiane@gmail.com',
+                    'password' => 'test-yedda-password',
+                ],
             ],
         ]);
 
         $this->seed(AdminUserSeeder::class);
         $this->seed(AdminUserSeeder::class);
 
-        $this->assertSame(3, User::query()->count());
+        $this->assertSame(4, User::query()->count());
 
         foreach ([
             'aerickadane@gmail.com' => ['Admin Dane - Konsonthego', 'test-dane-password'],
             'jdawitan012799@gmail.com' => ['Admin JD NEL - Konsonthego', 'test-jd-password'],
             'isobelzara.aldeguer@gmail.com' => ['Admin Iso - Konsonthego', 'test-iso-password'],
+            'iamyeddadiane@gmail.com' => ['Admin Yedda - Konsonthego', 'test-yedda-password'],
         ] as $email => [$name, $password]) {
             $admin = User::query()->where('email', $email)->first();
             $this->assertNotNull($admin);
@@ -96,7 +102,7 @@ class AdminUserSeederTest extends TestCase
         $this->withoutVite();
 
         $this->post(route('admin.login.store'), [
-            'email' => 'isobelzara.aldeguer@gmail.com',
+            'email' => 'IsoBelZara.Aldeguer@gmail.com',
             'password' => 'iso-login-password',
         ])->assertRedirect(route('admin.dashboard'));
 

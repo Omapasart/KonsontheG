@@ -38,6 +38,11 @@ return [
             'email' => env('ADMIN_ALI_EMAIL'),
             'password' => env('ADMIN_ALI_PASSWORD'),
         ],
+        [
+            'name' => env('ADMIN_YEDDA_NAME', 'Admin Yedda - Konsonthego'),
+            'email' => env('ADMIN_YEDDA_EMAIL'),
+            'password' => env('ADMIN_YEDDA_PASSWORD'),
+        ],
     ], fn (array $account): bool => filled($account['email']) && filled($account['password']))),
 
 ];
