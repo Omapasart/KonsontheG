@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
+use App\Mail\CategoryTransferRequested;
 use App\Mail\PaymentRejected;
 use App\Mail\PaymentVerified;
 use App\Mail\RegistrationApproved;
@@ -337,21 +338,22 @@ class AdminRegistrationService
 
     public function sendConfirmationEmail(Registration $registration, User $admin, string $type): bool
     {
+        $label = $this->emailTypeLabel($type);
         $mailable = $this->confirmationMailable($registration, $type);
         $sent = $this->mail($registration->email, $mailable);
 
         $this->log(
             $admin,
             $registration,
-            'emailed_'.$type.'_confirmation',
+            $this->emailLogAction($type),
             null,
             $sent ? 'sent' : 'failed',
-            'Manual '.$type.' confirmation emailed to '.$registration->email.'.'
+            'Manual '.$label.' emailed to '.$registration->email.'.'
         );
 
         if (! $sent) {
             throw ValidationException::withMessages([
-                'email' => 'The '.$type.' confirmation email for '.$registration->registration_number.' could not be sent.',
+                'email' => 'The '.$label.' email for '.$registration->registration_number.' could not be sent.',
             ]);
         }
 
@@ -367,7 +369,7 @@ class AdminRegistrationService
         $failed = 0;
         $skipped = 0;
 
-        foreach ($this->confirmationRecipients($type)->cursor() as $registration) {
+        foreach ($this->confirmationRecipients($type)->with('pendingTransferRequest')->cursor() as $registration) {
             try {
                 $this->sendConfirmationEmail($registration, $admin, $type);
                 $sent++;
@@ -390,6 +392,7 @@ class AdminRegistrationService
         $skipped = 0;
 
         $registrations = Registration::query()
+            ->with('pendingTransferRequest')
             ->whereIn('id', $ids)
             ->orderBy('id')
             ->get();
@@ -419,6 +422,24 @@ class AdminRegistrationService
         return $this->confirmationRecipients($type)->count();
     }
 
+    public function emailTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'application' => 'application confirmation',
+            'payment' => 'payment confirmation',
+            'slot' => 'slot confirmation',
+            'transfer' => 'category transfer request',
+            default => throw ValidationException::withMessages([
+                'type' => 'Unknown confirmation email type.',
+            ]),
+        };
+    }
+
+    private function emailLogAction(string $type): string
+    {
+        return $type === 'transfer' ? 'emailed_transfer_request' : 'emailed_'.$type.'_confirmation';
+    }
+
     private function confirmationRecipients(string $type)
     {
         return match ($type) {
@@ -429,6 +450,10 @@ class AdminRegistrationService
             'slot' => Registration::query()
                 ->whereIn('slot_status', [SlotStatus::Confirmed, SlotStatus::Waiting])
                 ->whereNotNull('email'),
+            'transfer' => Registration::query()
+                ->with('pendingTransferRequest')
+                ->whereNotNull('email')
+                ->whereHas('pendingTransferRequest'),
             default => throw ValidationException::withMessages([
                 'type' => 'Unknown confirmation email type.',
             ]),
@@ -451,10 +476,24 @@ class AdminRegistrationService
                     'slot_status' => 'Slot confirmation can only be sent to confirmed or waiting-list applicants.',
                 ]),
             },
+            'transfer' => $this->transferRequestMailable($registration),
             default => throw ValidationException::withMessages([
                 'type' => 'Unknown confirmation email type.',
             ]),
         };
+    }
+
+    private function transferRequestMailable(Registration $registration): CategoryTransferRequested
+    {
+        $pending = $registration->pendingTransferRequest;
+
+        if (! $pending) {
+            throw ValidationException::withMessages([
+                'transfer' => 'A category transfer request email can only be sent while a transfer is awaiting the applicant\'s response.',
+            ]);
+        }
+
+        return new CategoryTransferRequested($pending->loadMissing('registration'));
     }
 
     public function promote(Registration $registration, User $admin): void

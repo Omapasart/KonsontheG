@@ -235,7 +235,7 @@ class ApplicantController extends Controller
     public function sendEmail(Request $request, Registration $registration): RedirectResponse
     {
         $type = $request->validate([
-            'type' => ['required', 'in:application,payment,slot'],
+            'type' => ['required', 'in:application,payment,slot,transfer'],
         ])['type'];
 
         try {
@@ -244,13 +244,13 @@ class ApplicantController extends Controller
             return back()->withErrors($exception->errors());
         }
 
-        return back()->with('success', ucfirst($type).' confirmation was emailed to '.$registration->email.'.');
+        return back()->with('success', ucfirst($this->adminRegistrations->emailTypeLabel($type)).' was emailed to '.$registration->email.'.');
     }
 
     public function sendSelectedEmails(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'type' => ['required', 'in:application,payment,slot'],
+            'type' => ['required', 'in:application,payment,slot,transfer'],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'exists:registrations,id'],
         ], [
@@ -266,11 +266,7 @@ class ApplicantController extends Controller
             array_map('intval', $validated['ids'])
         );
 
-        $label = match ($validated['type']) {
-            'application' => 'application confirmation',
-            'payment' => 'payment confirmation',
-            default => 'slot confirmation',
-        };
+        $label = $this->adminRegistrations->emailTypeLabel($validated['type']);
 
         $message = 'Sent '.$result['sent'].' '.$label.' email'.($result['sent'] === 1 ? '' : 's').'.';
 

@@ -79,6 +79,7 @@
                 <option value="application">Application confirmation</option>
                 <option value="payment">Payment confirmation</option>
                 <option value="slot">Slot confirmation</option>
+                <option value="transfer">Category transfer request</option>
             </select>
         </div>
         <button type="submit" id="bulk-email-submit" class="btn-primary" onclick="return confirm('Send this confirmation email to the selected applicants?');">Send to selected</button>

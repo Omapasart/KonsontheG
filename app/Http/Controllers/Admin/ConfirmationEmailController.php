@@ -19,13 +19,14 @@ class ConfirmationEmailController extends Controller
             'applicationCount' => $this->adminRegistrations->confirmationRecipientCount('application'),
             'paymentCount' => $this->adminRegistrations->confirmationRecipientCount('payment'),
             'slotCount' => $this->adminRegistrations->confirmationRecipientCount('slot'),
+            'transferCount' => $this->adminRegistrations->confirmationRecipientCount('transfer'),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $type = $request->validate([
-            'type' => ['required', 'in:application,payment,slot'],
+            'type' => ['required', 'in:application,payment,slot,transfer'],
         ])['type'];
 
         set_time_limit(0);
@@ -36,11 +37,7 @@ class ConfirmationEmailController extends Controller
             return back()->withErrors($exception->errors());
         }
 
-        $label = match ($type) {
-            'application' => 'application confirmation',
-            'payment' => 'payment confirmation',
-            default => 'slot confirmation',
-        };
+        $label = $this->adminRegistrations->emailTypeLabel($type);
 
         $message = 'Sent '.$result['sent'].' '.$label.' email'.($result['sent'] === 1 ? '' : 's').'.';
 

@@ -343,6 +343,11 @@
                 <input type="hidden" name="type" value="slot">
                 <button type="submit" class="btn-ghost" @disabled(! in_array($registration->slot_status->value, ['confirmed', 'waiting'], true))>Send Slot Confirmation</button>
             </form>
+            <form method="POST" action="{{ route('admin.applicants.emails', $registration) }}" onsubmit="return confirm('Send category transfer request to {{ $registration->email }}?');">
+                @csrf
+                <input type="hidden" name="type" value="transfer">
+                <button type="submit" class="btn-ghost" @disabled(! $registration->pendingTransferRequest)>Send Transfer Request</button>
+            </form>
         </div>
     </section>
 

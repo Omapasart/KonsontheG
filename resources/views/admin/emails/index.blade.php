@@ -4,9 +4,9 @@
 @section('heading', 'Confirmation Emails')
 
 @section('content')
-    <p class="mb-6 max-w-3xl text-sm text-white/70">Manually send application, payment, and slot confirmation emails. Records and slots are not changed. Only eligible applicants are emailed.</p>
+    <p class="mb-6 max-w-3xl text-sm text-white/70">Manually send application, payment, slot confirmation, and category transfer request emails. Records and slots are not changed. Only eligible applicants are emailed.</p>
 
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <section class="rounded-3xl border border-white/10 bg-white/5 p-5">
             <p class="text-xs font-bold uppercase tracking-[0.25em] text-white/45">Application confirmation</p>
             <p class="mt-3 font-display text-3xl uppercase italic text-ktg-lime">{{ $applicationCount }}</p>
@@ -37,6 +37,17 @@
                 @csrf
                 <input type="hidden" name="type" value="slot">
                 <button type="submit" class="btn-primary w-full" @disabled($slotCount === 0)>Send to all</button>
+            </form>
+        </section>
+
+        <section class="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <p class="text-xs font-bold uppercase tracking-[0.25em] text-white/45">Transfer request</p>
+            <p class="mt-3 font-display text-3xl uppercase italic text-ktg-lime">{{ $transferCount }}</p>
+            <p class="mt-2 text-sm text-white/60">Applicants with a pending category transfer</p>
+            <form method="POST" action="{{ route('admin.emails.store') }}" class="mt-5" onsubmit="return confirm('Send category transfer request to {{ $transferCount }} applicant{{ $transferCount === 1 ? '' : 's' }}?');">
+                @csrf
+                <input type="hidden" name="type" value="transfer">
+                <button type="submit" class="btn-primary w-full" @disabled($transferCount === 0)>Send to all</button>
             </form>
         </section>
     </div>

@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\CategoryTransferStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
+use App\Mail\CategoryTransferRequested;
 use App\Mail\PaymentRejected;
 use App\Mail\PaymentVerified;
 use App\Mail\RegistrationApproved;
@@ -13,6 +15,7 @@ use App\Mail\RegistrationRejected;
 use App\Mail\SlotConfirmed;
 use App\Mail\WaitingListPlaced;
 use App\Models\AdminActivityLog;
+use App\Models\CategoryTransferRequest;
 use App\Models\Registration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -692,6 +695,123 @@ class AdminApplicantTest extends TestCase
 
         Mail::assertSent(PaymentVerified::class, 1);
         Mail::assertSent(PaymentVerified::class, fn ($mail) => $mail->hasTo($verified->email));
+    }
+
+    public function test_admin_can_manually_resend_a_pending_transfer_request_without_changing_records(): void
+    {
+        $applicant = Registration::factory()->confirmed()->create([
+            'email' => 'transfer.mail@example.com',
+            'entry_level' => 'beginner',
+        ]);
+        $admin = $this->admin();
+        $this->requestTransfer($applicant, 'novice', $admin);
+
+        $this->assertSame(CategoryTransferStatus::Pending, $applicant->fresh()->pendingTransferRequest->status);
+
+        Mail::fake();
+
+        $this->actingAs($admin)
+            ->from(route('admin.applicants.show', $applicant))
+            ->post(route('admin.applicants.emails', $applicant), ['type' => 'transfer'])
+            ->assertRedirect(route('admin.applicants.show', $applicant));
+
+        Mail::assertSent(CategoryTransferRequested::class, fn ($mail) => $mail->hasTo($applicant->email));
+        $this->assertSame('beginner', $applicant->fresh()->entry_level->value);
+        $this->assertSame(SlotStatus::Confirmed, $applicant->fresh()->slot_status);
+        $this->assertSame(CategoryTransferStatus::Pending, $applicant->fresh()->pendingTransferRequest->status);
+        $this->assertDatabaseHas('admin_activity_logs', [
+            'registration_id' => $applicant->id,
+            'action' => 'emailed_transfer_request',
+        ]);
+    }
+
+    public function test_transfer_request_email_is_blocked_when_no_pending_transfer_exists(): void
+    {
+        $applicant = Registration::factory()->confirmed()->create(['entry_level' => 'beginner']);
+
+        $this->actingAs($this->admin())
+            ->from(route('admin.applicants.show', $applicant))
+            ->post(route('admin.applicants.emails', $applicant), ['type' => 'transfer'])
+            ->assertRedirect(route('admin.applicants.show', $applicant))
+            ->assertSessionHasErrors('transfer');
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_admin_can_send_transfer_request_emails_to_all_pending_applicants(): void
+    {
+        $first = Registration::factory()->confirmed()->create([
+            'email' => 'one.transfer@example.com',
+            'entry_level' => 'beginner',
+        ]);
+        $second = Registration::factory()->confirmed()->create([
+            'email' => 'two.transfer@example.com',
+            'entry_level' => 'beginner',
+        ]);
+        $withoutTransfer = Registration::factory()->confirmed()->create([
+            'email' => 'none.transfer@example.com',
+            'entry_level' => 'beginner',
+        ]);
+        $admin = $this->admin();
+        $this->requestTransfer($first, 'novice', $admin);
+        $this->requestTransfer($second, 'novice', $admin);
+
+        Mail::fake();
+
+        $this->actingAs($admin)
+            ->get(route('admin.emails.index'))
+            ->assertOk()
+            ->assertSee('Transfer request');
+
+        $this->actingAs($admin)
+            ->post(route('admin.emails.store'), ['type' => 'transfer'])
+            ->assertRedirect();
+
+        Mail::assertSent(CategoryTransferRequested::class, 2);
+        Mail::assertSent(CategoryTransferRequested::class, fn ($mail) => $mail->hasTo($first->email));
+        Mail::assertSent(CategoryTransferRequested::class, fn ($mail) => $mail->hasTo($second->email));
+        Mail::assertNotSent(CategoryTransferRequested::class, fn ($mail) => $mail->hasTo($withoutTransfer->email));
+        $this->assertSame(CategoryTransferStatus::Pending, $first->fresh()->pendingTransferRequest->status);
+        $this->assertSame(CategoryTransferStatus::Pending, $second->fresh()->pendingTransferRequest->status);
+    }
+
+    public function test_admin_can_send_transfer_request_emails_to_checked_applicants(): void
+    {
+        $pending = Registration::factory()->confirmed()->create([
+            'email' => 'checked.transfer@example.com',
+            'entry_level' => 'beginner',
+        ]);
+        $skipped = Registration::factory()->confirmed()->create([
+            'email' => 'skipped.transfer@example.com',
+            'entry_level' => 'beginner',
+        ]);
+        $admin = $this->admin();
+        $this->requestTransfer($pending, 'novice', $admin);
+
+        Mail::fake();
+
+        $this->actingAs($admin)
+            ->from(route('admin.applicants.index'))
+            ->post(route('admin.applicants.emails.selected'), [
+                'type' => 'transfer',
+                'ids' => [$pending->id, $skipped->id],
+            ])
+            ->assertRedirect(route('admin.applicants.index'));
+
+        Mail::assertSent(CategoryTransferRequested::class, 1);
+        Mail::assertSent(CategoryTransferRequested::class, fn ($mail) => $mail->hasTo($pending->email));
+        Mail::assertNotSent(CategoryTransferRequested::class, fn ($mail) => $mail->hasTo($skipped->email));
+    }
+
+    private function requestTransfer(Registration $applicant, string $target, User $admin): CategoryTransferRequest
+    {
+        $this->actingAs($admin)
+            ->post(route('admin.applicants.category-transfer', $applicant), [
+                'requested_category' => $target,
+            ])
+            ->assertRedirect();
+
+        return CategoryTransferRequest::query()->where('registration_id', $applicant->id)->latest('id')->firstOrFail();
     }
 
     private function admin(): User
