@@ -1,3 +1,5 @@
+import './loading-screen';
+
 document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.getElementById('admin-sidebar');
     const backdrop = document.getElementById('sidebar-backdrop');
@@ -79,34 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('withdraw-cancel')?.addEventListener('click', () => {
         withdrawDialog?.close();
     });
-
-    const applicantCheckboxes = document.querySelectorAll('.js-applicant-checkbox');
-    const selectAllApplicants = document.getElementById('select-all-applicants');
-    const bulkEmailCount = document.getElementById('bulk-email-count');
-    const bulkEmailSubmit = document.getElementById('bulk-email-submit');
-
-    const updateBulkEmailState = () => {
-        const selected = [...applicantCheckboxes].filter((box) => box.checked).length;
-        if (bulkEmailCount) {
-            bulkEmailCount.textContent = `${selected} selected`;
-        }
-        if (bulkEmailSubmit) {
-            bulkEmailSubmit.disabled = selected === 0;
-        }
-        if (selectAllApplicants && applicantCheckboxes.length > 0) {
-            selectAllApplicants.checked = selected === applicantCheckboxes.length;
-            selectAllApplicants.indeterminate = selected > 0 && selected < applicantCheckboxes.length;
-        }
-    };
-
-    selectAllApplicants?.addEventListener('change', () => {
-        applicantCheckboxes.forEach((box) => {
-            box.checked = selectAllApplicants.checked;
-        });
-        updateBulkEmailState();
-    });
-    applicantCheckboxes.forEach((box) => box.addEventListener('change', updateBulkEmailState));
-    updateBulkEmailState();
 
     const transferDialog = document.getElementById('transfer-dialog');
     document.getElementById('transfer-open')?.addEventListener('click', () => {

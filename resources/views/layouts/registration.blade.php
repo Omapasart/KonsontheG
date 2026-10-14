@@ -54,5 +54,7 @@
                 KONSONTHEGO Tournament Registration - AOG Creatives
             </footer>
         </div>
+
+        @include('partials.loading-screen')
     </body>
 </html>

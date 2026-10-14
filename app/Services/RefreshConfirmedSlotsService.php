@@ -21,42 +21,37 @@ class RefreshConfirmedSlotsService
     /**
      * @return array{deleted: int, total_pending: int, categories: array<string, array<string, mixed>>, pending: list<Registration>, promoted: list<Registration>}
      */
-    public function refresh(User $admin): array
+    public function refresh(User $admin, EntryLevel $level): array
     {
         if (DB::transactionLevel() === 0) {
-            return DB::transaction(fn () => $this->refresh($admin));
+            return DB::transaction(fn () => $this->refresh($admin, $level));
         }
 
-        foreach (EntryLevel::cases() as $level) {
-            $this->capacity->lockCategory($level);
-        }
+        $this->capacity->lockCategory($level);
 
-        $deleted = $this->deleteNonWaitingApplicants();
-        $pending = [];
-        $categories = [];
-
-        foreach (EntryLevel::cases() as $level) {
-            $moved = $this->moveWaitingListToPending($level, $admin);
-            $after = $this->capacity->statusFor($level);
-            $pending = array_merge($pending, $moved);
-            $categories[$level->value] = [
+        $deleted = $this->deleteNonWaitingApplicants($level);
+        $pending = $this->moveWaitingListToPending($level, $admin);
+        $after = $this->capacity->statusFor($level);
+        $categories = [
+            $level->value => [
                 'level' => $level,
-                'pending' => count($moved),
+                'pending' => count($pending),
                 'confirmed' => $after['confirmed'],
                 'waiting' => $after['waiting'],
                 'regular_remaining' => $after['regular_remaining'],
                 'capacity' => $after['capacity'],
-            ];
-        }
+            ],
+        ];
 
         AdminActivityLog::query()->create([
             'admin_user_id' => $admin->id,
             'registration_id' => null,
             'action' => 'registrations_reset',
             'old_status' => null,
-            'new_status' => null,
+            'new_status' => $level->value,
             'remarks' => sprintf(
-                'Deleted %d non-waiting applicant%s and moved %d waiting-list applicant%s to pending slot and payment verification. None were given a confirmed slot. Transfer emails were sent to moved applicants.',
+                'Refreshed %s: deleted %d non-waiting applicant%s and moved %d waiting-list applicant%s to pending slot and payment verification. Other categories were not changed. None were given a confirmed slot. Transfer emails were sent to moved applicants.',
+                $level->label(),
                 $deleted,
                 $deleted === 1 ? '' : 's',
                 count($pending),
@@ -75,31 +70,27 @@ class RefreshConfirmedSlotsService
 
     public function summaryMessage(array $result): string
     {
-        $parts = [];
-
-        foreach ($result['categories'] as $row) {
-            $parts[] = sprintf(
-                '%s: %d pending, %d/%d confirmed',
-                $row['level']->label(),
-                $row['pending'],
-                $row['confirmed'],
-                $row['capacity']
-            );
-        }
+        $row = reset($result['categories']);
+        $label = $row['level']->label();
 
         return sprintf(
-            'Deleted %d applicant%s. Moved %d waiting-list applicant%s to pending slot and payment verification. No slots were auto-confirmed. Transfer emails were sent. %s',
+            'Refreshed %s. Deleted %d applicant%s. Moved %d waiting-list applicant%s to pending slot and payment verification. No slots were auto-confirmed. Transfer emails were sent. %s: %d pending, %d/%d confirmed. Other categories were not changed.',
+            $label,
             $result['deleted'],
             (int) $result['deleted'] === 1 ? '' : 's',
             $result['total_pending'],
             (int) $result['total_pending'] === 1 ? '' : 's',
-            implode(' ', $parts)
+            $label,
+            $row['pending'],
+            $row['confirmed'],
+            $row['capacity']
         );
     }
 
-    private function deleteNonWaitingApplicants(): int
+    private function deleteNonWaitingApplicants(EntryLevel $level): int
     {
         $toDelete = Registration::query()
+            ->where('entry_level', $level)
             ->where('slot_status', '!=', SlotStatus::Waiting)
             ->lockForUpdate()
             ->get();

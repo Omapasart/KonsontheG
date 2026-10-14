@@ -31,7 +31,6 @@
                     <a href="{{ route('admin.applicants.index', ['registration_status' => 'rejected']) }}" class="nav-link {{ request('registration_status') === 'rejected' ? 'nav-link-active' : '' }}">Rejected</a>
                     <a href="{{ route('admin.waiting-list') }}" class="nav-link {{ request()->routeIs('admin.waiting-list') ? 'nav-link-active' : '' }}">Waiting List</a>
                     <a href="{{ route('admin.categories.index') }}" class="nav-link {{ request()->routeIs('admin.categories.*') ? 'nav-link-active' : '' }}">Category Registration</a>
-                    <a href="{{ route('admin.emails.index') }}" class="nav-link {{ request()->routeIs('admin.emails.*') ? 'nav-link-active' : '' }}">Confirmation Emails</a>
                 </nav>
 
                 <div class="border-t border-white/10 px-3 py-4 text-sm">
@@ -70,6 +69,8 @@
                 </div>
             </div>
         </div>
+
+        @include('partials.loading-screen')
 
         <div id="lightbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 p-4">
             <button type="button" id="lightbox-close" class="absolute right-4 top-4 rounded-full bg-white/10 px-4 py-2 text-sm font-bold uppercase tracking-widest">Close</button>

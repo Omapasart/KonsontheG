@@ -324,33 +324,6 @@
         </div>
     </section>
 
-    <section class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 lg:p-8">
-        <h3 class="font-display text-xl uppercase italic text-ktg-lime">Send Confirmation Emails</h3>
-        <p class="mt-2 text-sm text-white/60">Resend notices to {{ $registration->email }} without changing this record.</p>
-        <div class="mt-6 flex flex-wrap gap-3">
-            <form method="POST" action="{{ route('admin.applicants.emails', $registration) }}" onsubmit="return confirm('Send application confirmation to {{ $registration->email }}?');">
-                @csrf
-                <input type="hidden" name="type" value="application">
-                <button type="submit" class="btn-ghost">Send Application Confirmation</button>
-            </form>
-            <form method="POST" action="{{ route('admin.applicants.emails', $registration) }}" onsubmit="return confirm('Send payment confirmation to {{ $registration->email }}?');">
-                @csrf
-                <input type="hidden" name="type" value="payment">
-                <button type="submit" class="btn-ghost" @disabled($registration->payment_status->value !== 'verified')>Send Payment Confirmation</button>
-            </form>
-            <form method="POST" action="{{ route('admin.applicants.emails', $registration) }}" onsubmit="return confirm('Send slot confirmation to {{ $registration->email }}?');">
-                @csrf
-                <input type="hidden" name="type" value="slot">
-                <button type="submit" class="btn-ghost" @disabled(! in_array($registration->slot_status->value, ['confirmed', 'waiting'], true))>Send Slot Confirmation</button>
-            </form>
-            <form method="POST" action="{{ route('admin.applicants.emails', $registration) }}" onsubmit="return confirm('Send category transfer request to {{ $registration->email }}?');">
-                @csrf
-                <input type="hidden" name="type" value="transfer">
-                <button type="submit" class="btn-ghost" @disabled(! $registration->pendingTransferRequest)>Send Transfer Request</button>
-            </form>
-        </div>
-    </section>
-
     @if ($registration->activityLogs->isNotEmpty())
         <section class="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5 lg:p-8">
             <h3 class="font-display text-xl uppercase italic text-ktg-lime">Activity Log</h3>

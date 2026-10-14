@@ -126,4 +126,12 @@
     .badge-withdrawn {
         @apply bg-white/12 text-white/75 ring-1 ring-white/25;
     }
+
+    .loading-screen {
+        @apply fixed inset-0 z-[80] hidden items-center justify-center bg-ktg-black/85 backdrop-blur-sm;
+    }
+
+    .loading-spinner {
+        @apply h-14 w-14 animate-spin rounded-full border-4 border-white/20 border-t-ktg-lime;
+    }
 }

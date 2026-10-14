@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\EntryLevel;
 use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
 use App\Models\Registration;
@@ -38,31 +39,31 @@ class ConfirmedApplicantsExcelExporter
     /**
      * @return Collection<int, Registration>
      */
-    public function confirmedApplicants(): Collection
+    public function confirmedApplicants(EntryLevel $level): Collection
     {
         return Registration::query()
+            ->where('entry_level', $level)
             ->where('slot_status', SlotStatus::Confirmed)
             ->where('registration_status', '!=', RegistrationStatus::Rejected)
-            ->orderByRaw("CASE entry_level WHEN 'beginner' THEN 1 WHEN 'novice' THEN 2 WHEN 'intermediate' THEN 3 ELSE 4 END")
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->orderBy('id')
             ->get();
     }
 
-    public function filename(?\DateTimeInterface $date = null): string
+    public function filename(EntryLevel $level, ?\DateTimeInterface $date = null): string
     {
         $stamp = ($date ?? now())->format('Y-m-d');
 
-        return 'KONSONTHEGO_Confirmed_Applicants_'.$stamp.'.xlsx';
+        return 'KONSONTHEGO_Confirmed_'.$level->label().'_Applicants_'.$stamp.'.xlsx';
     }
 
-    public function download(): StreamedResponse
+    public function download(EntryLevel $level): StreamedResponse
     {
-        $applicants = $this->confirmedApplicants();
+        $applicants = $this->confirmedApplicants($level);
         $exportedAt = now();
         $binary = (new SimpleXlsxWorkbook)->build(
-            'KONSONTHEGO — Confirmed Applicants',
+            'KONSONTHEGO — Confirmed '.$level->label().' Applicants',
             'Export date: '.$exportedAt->format('F j, Y'),
             $this->headers(),
             $applicants->map(fn (Registration $applicant) => $this->row($applicant))->all(),
@@ -71,7 +72,7 @@ class ConfirmedApplicantsExcelExporter
 
         return response()->streamDownload(function () use ($binary): void {
             echo $binary;
-        }, $this->filename($exportedAt), [
+        }, $this->filename($level, $exportedAt), [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }

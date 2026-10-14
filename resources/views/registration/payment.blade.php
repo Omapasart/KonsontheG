@@ -92,7 +92,7 @@
             <p class="mt-4 text-xs text-white/45">Use Back to edit any of the information above. GCash details are shown only on this step.</p>
         </div>
 
-        <form method="POST" action="{{ route('register.submit') }}" enctype="multipart/form-data" class="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-8" data-submit-form @if (! empty($wizard['payment_proof_path'])) data-has-proof="1" @endif>
+        <form method="POST" action="{{ route('register.submit') }}" enctype="multipart/form-data" class="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-8" data-submit-form data-loading-message="Submitting your registration" @if (! empty($wizard['payment_proof_path'])) data-has-proof="1" @endif>
             @csrf
             <input type="hidden" name="submission_token" value="{{ $wizard['submission_token'] }}">
 

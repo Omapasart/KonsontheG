@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\EntryLevel;
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use App\Enums\SlotStatus;
@@ -37,29 +38,38 @@ class RefreshConfirmedSlotsTest extends TestCase
         Registration::factory()->waiting(1)->create(['entry_level' => 'beginner']);
 
         $this->actingAs(User::factory()->admin()->create())
-            ->get(route('admin.confirmed-slots.refresh'))
+            ->get(route('admin.confirmed-slots.refresh', 'beginner'))
             ->assertOk()
-            ->assertSee('move the waiting list to pending')
+            ->assertSee('Refresh Beginner Data')
+            ->assertSee('Clear Beginner')
             ->assertSee('pending slot verification')
             ->assertSee('pending payment verification')
             ->assertSee('will not automatically receive a confirmed slot')
             ->assertSee('transferred to a regular slot')
-            ->assertSee('Confirmed applicants are not emailed');
+            ->assertSee('Confirmed applicants are not emailed')
+            ->assertSee('Other categories are not changed');
     }
 
     public function test_refresh_requires_confirmation_and_admin_access(): void
     {
-        $this->get(route('admin.confirmed-slots.refresh'))->assertRedirect(route('admin.login'));
+        $this->get(route('admin.confirmed-slots.refresh', 'beginner'))->assertRedirect(route('admin.login'));
 
         $this->actingAs(User::factory()->create(['is_admin' => false]))
-            ->post(route('admin.confirmed-slots.refresh.store'))
+            ->post(route('admin.confirmed-slots.refresh.store', 'beginner'))
             ->assertForbidden();
 
         $this->actingAs(User::factory()->admin()->create())
-            ->from(route('admin.confirmed-slots.refresh'))
-            ->post(route('admin.confirmed-slots.refresh.store'))
-            ->assertRedirect(route('admin.confirmed-slots.refresh'))
+            ->from(route('admin.confirmed-slots.refresh', 'beginner'))
+            ->post(route('admin.confirmed-slots.refresh.store', 'beginner'))
+            ->assertRedirect(route('admin.confirmed-slots.refresh', 'beginner'))
             ->assertSessionHasErrors('confirm');
+    }
+
+    public function test_unknown_category_cannot_be_refreshed(): void
+    {
+        $this->actingAs(User::factory()->admin()->create())
+            ->get('/admin/confirmed-slots/refresh/advanced')
+            ->assertNotFound();
     }
 
     public function test_all_waiting_list_applicants_become_pending_not_confirmed(): void
@@ -87,7 +97,7 @@ class RefreshConfirmedSlotsTest extends TestCase
         ]);
 
         $this->actingAs(User::factory()->admin()->create())
-            ->post(route('admin.confirmed-slots.refresh.store'), ['confirm' => '1'])
+            ->post(route('admin.confirmed-slots.refresh.store', 'beginner'), ['confirm' => '1'])
             ->assertRedirect(route('admin.dashboard'));
 
         $this->assertSame(3, Registration::query()->count());
@@ -117,6 +127,40 @@ class RefreshConfirmedSlotsTest extends TestCase
         $this->assertSame(3, AdminActivityLog::query()->where('action', 'moved_to_pending')->count());
     }
 
+    public function test_refreshing_one_category_does_not_change_other_categories(): void
+    {
+        $beginnerConfirmed = Registration::factory()->confirmed()->create([
+            'entry_level' => 'beginner',
+            'email' => 'beginner.confirmed@example.com',
+        ]);
+        $beginnerWaiting = Registration::factory()->waiting(1)->create([
+            'entry_level' => 'beginner',
+            'email' => 'beginner.wait@example.com',
+        ]);
+        $noviceConfirmed = Registration::factory()->confirmed()->create([
+            'entry_level' => 'novice',
+            'email' => 'novice.confirmed@example.com',
+        ]);
+        $noviceWaiting = Registration::factory()->waiting(1)->create([
+            'entry_level' => 'novice',
+            'email' => 'novice.wait@example.com',
+        ]);
+
+        $this->actingAs(User::factory()->admin()->create())
+            ->post(route('admin.confirmed-slots.refresh.store', 'beginner'), ['confirm' => '1'])
+            ->assertRedirect(route('admin.dashboard'));
+
+        $this->assertDatabaseMissing('registrations', ['id' => $beginnerConfirmed->id]);
+        $this->assertSame(SlotStatus::PendingVerification, $beginnerWaiting->fresh()->slot_status);
+        $this->assertSame(SlotStatus::Confirmed, $noviceConfirmed->fresh()->slot_status);
+        $this->assertSame(SlotStatus::Waiting, $noviceWaiting->fresh()->slot_status);
+        $this->assertSame(1, $noviceWaiting->fresh()->waiting_list_position);
+        Mail::assertSent(WaitingListTransferred::class, 1);
+        Mail::assertSent(WaitingListTransferred::class, fn ($mail) => $mail->hasTo('beginner.wait@example.com'));
+        Mail::assertNotSent(WaitingListTransferred::class, fn ($mail) => $mail->hasTo('novice.wait@example.com'));
+        Mail::assertNotSent(fn (Mailable $mail) => $mail->hasTo('novice.confirmed@example.com'));
+    }
+
     public function test_rejected_waiting_applicants_are_not_moved_to_pending(): void
     {
         Registration::factory()->confirmed()->create(['entry_level' => 'beginner']);
@@ -131,7 +175,7 @@ class RefreshConfirmedSlotsTest extends TestCase
         ]);
 
         $this->actingAs(User::factory()->admin()->create())
-            ->post(route('admin.confirmed-slots.refresh.store'), ['confirm' => '1'])
+            ->post(route('admin.confirmed-slots.refresh.store', 'beginner'), ['confirm' => '1'])
             ->assertRedirect(route('admin.dashboard'));
 
         $this->assertSame(SlotStatus::PendingVerification, $eligible->fresh()->slot_status);
@@ -153,7 +197,10 @@ class RefreshConfirmedSlotsTest extends TestCase
         Registration::deleting($listener);
 
         try {
-            app(RefreshConfirmedSlotsService::class)->refresh(User::factory()->admin()->create());
+            app(RefreshConfirmedSlotsService::class)->refresh(
+                User::factory()->admin()->create(),
+                EntryLevel::Beginner
+            );
             $this->fail('Refresh should have failed.');
         } catch (\RuntimeException $exception) {
             $this->assertSame('Forced refresh failure.', $exception->getMessage());

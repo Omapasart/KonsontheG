@@ -37,5 +37,7 @@
                 <button type="submit" class="btn-primary w-full">Sign In</button>
             </form>
         </div>
+
+        @include('partials.loading-screen')
     </body>
 </html>
